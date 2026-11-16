@@ -1,1071 +1,349 @@
 {
-  "nbformat": 4,
-  "nbformat_minor": 0,
-  "metadata": {
-    "colab": {
-      "provenance": []
-    },
-    "kernelspec": {
-      "name": "python3",
-      "display_name": "Python 3"
-    },
-    "language_info": {
-      "name": "python"
-    }
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# QP-001: Advanced Quantum Processor Simulator\n",
+    "\n",
+    "This notebook demonstrates a more advanced quantum processor simulation workflow using Qiskit and PennyLane. It covers:\n",
+    "- Bell-state preparation\n",
+    "- GHZ-state generation\n",
+    "- Noise modeling\n",
+    "- Quantum error correction with repetition code\n",
+    "- Basic processor abstraction for experiment orchestration\n",
+    "\n",
+    "The goal is to move from simple examples to a cleaner and more reusable quantum processor simulation project.\n"
+   ]
   },
-  "cells": [
-    {
-      "cell_type": "code",
-      "execution_count": 13,
-      "metadata": {
-        "colab": {
-          "base_uri": "https://localhost:8080/",
-          "height": 1000
-        },
-        "id": "C5GaE9-gr5vy",
-        "outputId": "6773f399-8a5e-4582-f059-e05c85818d79"
-      },
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "Collecting qiskit-ibm-runtime\n",
-            "  Downloading qiskit_ibm_runtime-0.52.1-py3-none-any.whl.metadata (23 kB)\n",
-            "Collecting qiskit-aer\n",
-            "  Downloading qiskit_aer-0.18.2-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (8.7 kB)\n",
-            "Collecting qiskit[visualization]\n",
-            "  Downloading qiskit-2.6.2-cp310-abi3-manylinux_2_28_x86_64.whl.metadata (14 kB)\n",
-            "Requirement already satisfied: numpy<3,>=2.0 in /usr/local/lib/python3.13/dist-packages (from qiskit[visualization]) (2.4.6)\n",
-            "Requirement already satisfied: scipy>=1.14 in /usr/local/lib/python3.13/dist-packages (from qiskit[visualization]) (1.16.3)\n",
-            "Requirement already satisfied: rustworkx>=0.15.0 in /usr/local/lib/python3.13/dist-packages (from qiskit[visualization]) (0.18.1)\n",
-            "Requirement already satisfied: dill>=0.3 in /usr/local/lib/python3.13/dist-packages (from qiskit[visualization]) (0.4.1)\n",
-            "Collecting stevedore>=3.0.0 (from qiskit[visualization])\n",
-            "  Downloading stevedore-5.10.0-py3-none-any.whl.metadata (2.3 kB)\n",
-            "Requirement already satisfied: typing-extensions in /usr/local/lib/python3.13/dist-packages (from qiskit[visualization]) (4.16.0)\n",
-            "Requirement already satisfied: matplotlib>=3.3 in /usr/local/lib/python3.13/dist-packages (from qiskit[visualization]) (3.10.0)\n",
-            "Requirement already satisfied: pydot in /usr/local/lib/python3.13/dist-packages (from qiskit[visualization]) (4.0.1)\n",
-            "Requirement already satisfied: Pillow>=4.2.1 in /usr/local/lib/python3.13/dist-packages (from qiskit[visualization]) (11.3.0)\n",
-            "Collecting pylatexenc>=1.4 (from qiskit[visualization])\n",
-            "  Downloading pylatexenc-2.11-py2.py3-none-any.whl.metadata (3.9 kB)\n",
-            "Requirement already satisfied: seaborn>=0.9.0 in /usr/local/lib/python3.13/dist-packages (from qiskit[visualization]) (0.13.2)\n",
-            "Requirement already satisfied: sympy>=1.3 in /usr/local/lib/python3.13/dist-packages (from qiskit[visualization]) (1.14.0)\n",
-            "Requirement already satisfied: requests>=2.32.4 in /usr/local/lib/python3.13/dist-packages (from qiskit-ibm-runtime) (2.32.4)\n",
-            "Collecting requests-ntlm>=1.1.0 (from qiskit-ibm-runtime)\n",
-            "  Downloading requests_ntlm-1.3.0-py3-none-any.whl.metadata (2.4 kB)\n",
-            "Requirement already satisfied: urllib3>=2.4.0 in /usr/local/lib/python3.13/dist-packages (from qiskit-ibm-runtime) (2.5.0)\n",
-            "Requirement already satisfied: python-dateutil>=2.9.0 in /usr/local/lib/python3.13/dist-packages (from qiskit-ibm-runtime) (2.9.0.post0)\n",
-            "Collecting ibm-platform-services>=0.61.1 (from qiskit-ibm-runtime)\n",
-            "  Downloading ibm_platform_services-0.77.2-py3-none-any.whl.metadata (9.3 kB)\n",
-            "Collecting ibm-quantum-schemas<1,>=0.13.20261016 (from qiskit-ibm-runtime)\n",
-            "  Downloading ibm_quantum_schemas-0.13.20261016-py3-none-any.whl.metadata (3.1 kB)\n",
-            "Requirement already satisfied: pydantic>=2.13.0 in /usr/local/lib/python3.13/dist-packages (from qiskit-ibm-runtime) (2.14.2)\n",
-            "Collecting pybase64>=1.4.0 (from qiskit-ibm-runtime)\n",
-            "  Downloading pybase64-1.5.2-cp313-cp313-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl.metadata (11 kB)\n",
-            "Collecting samplomatic>=0.21.0 (from qiskit-ibm-runtime)\n",
-            "  Downloading samplomatic-0.21.0-py3-none-any.whl.metadata (6.7 kB)\n",
-            "Collecting qiskit-mitigation==0.1.1 (from qiskit-ibm-runtime)\n",
-            "  Downloading qiskit_mitigation-0.1.1-py3-none-any.whl.metadata (19 kB)\n",
-            "Collecting qiskit_qasm3_import<1.0.0,>=0.6.0 (from ibm-quantum-schemas<1,>=0.13.20261016->qiskit-ibm-runtime)\n",
-            "  Downloading qiskit_qasm3_import-0.6.0-py3-none-any.whl.metadata (7.2 kB)\n",
-            "Requirement already satisfied: annotated-types>=0.6.0 in /usr/local/lib/python3.13/dist-packages (from pydantic>=2.13.0->qiskit-ibm-runtime) (0.8.0)\n",
-            "Requirement already satisfied: pydantic-core==2.50.2 in /usr/local/lib/python3.13/dist-packages (from pydantic>=2.13.0->qiskit-ibm-runtime) (2.50.2)\n",
-            "Requirement already satisfied: typing-inspection>=0.4.4 in /usr/local/lib/python3.13/dist-packages (from pydantic>=2.13.0->qiskit-ibm-runtime) (0.4.4)\n",
-            "Collecting openqasm3<2.0,>=0.4 (from openqasm3[parser]<2.0,>=0.4->qiskit_qasm3_import<1.0.0,>=0.6.0->ibm-quantum-schemas<1,>=0.13.20261016->qiskit-ibm-runtime)\n",
-            "  Downloading openqasm3-1.0.2-py3-none-any.whl.metadata (6.0 kB)\n",
-            "Collecting antlr4_python3_runtime<4.14,>=4.7 (from openqasm3[parser]<2.0,>=0.4->qiskit_qasm3_import<1.0.0,>=0.6.0->ibm-quantum-schemas<1,>=0.13.20261016->qiskit-ibm-runtime)\n",
-            "  Downloading antlr4_python3_runtime-4.13.2-py3-none-any.whl.metadata (304 bytes)\n",
-            "Requirement already satisfied: psutil>=5 in /usr/local/lib/python3.13/dist-packages (from qiskit-aer) (5.9.5)\n",
-            "Collecting ibm_cloud_sdk_core<4.0.0,>=3.28.1 (from ibm-platform-services>=0.61.1->qiskit-ibm-runtime)\n",
-            "  Downloading ibm_cloud_sdk_core-3.28.2-py3-none-any.whl.metadata (8.7 kB)\n",
-            "Collecting python-dateutil>=2.9.0 (from qiskit-ibm-runtime)\n",
-            "  Downloading python_dateutil-3.0.0-py2.py3-none-any.whl.metadata (8.2 kB)\n",
-            "Requirement already satisfied: PyJWT<3.0.0,>=2.11.0 in /usr/local/lib/python3.13/dist-packages (from ibm_cloud_sdk_core<4.0.0,>=3.28.1->ibm-platform-services>=0.61.1->qiskit-ibm-runtime) (2.15.1)\n",
-            "Requirement already satisfied: six>=1.6 in /usr/local/lib/python3.13/dist-packages (from python-dateutil>=2.9.0->qiskit-ibm-runtime) (1.17.0)\n",
-            "Requirement already satisfied: tzdata in /usr/local/lib/python3.13/dist-packages (from python-dateutil>=2.9.0->qiskit-ibm-runtime) (2026.6)\n",
-            "Requirement already satisfied: charset_normalizer<4,>=2 in /usr/local/lib/python3.13/dist-packages (from requests>=2.32.4->qiskit-ibm-runtime) (3.4.9)\n",
-            "Requirement already satisfied: idna<4,>=2.5 in /usr/local/lib/python3.13/dist-packages (from requests>=2.32.4->qiskit-ibm-runtime) (3.20)\n",
-            "Requirement already satisfied: certifi>=2017.4.17 in /usr/local/lib/python3.13/dist-packages (from requests>=2.32.4->qiskit-ibm-runtime) (2026.10.23)\n",
-            "Requirement already satisfied: contourpy>=1.0.1 in /usr/local/lib/python3.13/dist-packages (from matplotlib>=3.3->qiskit[visualization]) (1.4.0)\n",
-            "Requirement already satisfied: cycler>=0.10 in /usr/local/lib/python3.13/dist-packages (from matplotlib>=3.3->qiskit[visualization]) (0.12.1)\n",
-            "Requirement already satisfied: fonttools>=4.22.0 in /usr/local/lib/python3.13/dist-packages (from matplotlib>=3.3->qiskit[visualization]) (4.68.0)\n",
-            "Requirement already satisfied: kiwisolver>=1.3.1 in /usr/local/lib/python3.13/dist-packages (from matplotlib>=3.3->qiskit[visualization]) (1.5.1)\n",
-            "Requirement already satisfied: packaging>=20.0 in /usr/local/lib/python3.13/dist-packages (from matplotlib>=3.3->qiskit[visualization]) (26.3)\n",
-            "Requirement already satisfied: pyparsing>=2.3.1 in /usr/local/lib/python3.13/dist-packages (from matplotlib>=3.3->qiskit[visualization]) (3.3.3)\n",
-            "Requirement already satisfied: cryptography>=1.3 in /usr/local/lib/python3.13/dist-packages (from requests-ntlm>=1.1.0->qiskit-ibm-runtime) (50.0.2)\n",
-            "Collecting pyspnego>=0.4.0 (from requests-ntlm>=1.1.0->qiskit-ibm-runtime)\n",
-            "  Downloading pyspnego-0.12.4-py3-none-any.whl.metadata (4.2 kB)\n",
-            "Requirement already satisfied: cffi>=2.0.0 in /usr/local/lib/python3.13/dist-packages (from cryptography>=1.3->requests-ntlm>=1.1.0->qiskit-ibm-runtime) (2.1.1)\n",
-            "Requirement already satisfied: pycparser in /usr/local/lib/python3.13/dist-packages (from cffi>=2.0.0->cryptography>=1.3->requests-ntlm>=1.1.0->qiskit-ibm-runtime) (3.12)\n",
-            "Requirement already satisfied: orjson>=3.9.0 in /usr/local/lib/python3.13/dist-packages (from samplomatic>=0.21.0->qiskit-ibm-runtime) (3.13.0)\n",
-            "Requirement already satisfied: pandas>=1.2 in /usr/local/lib/python3.13/dist-packages (from seaborn>=0.9.0->qiskit[visualization]) (2.2.3)\n",
-            "Requirement already satisfied: pytz>=2020.1 in /usr/local/lib/python3.13/dist-packages (from pandas>=1.2->seaborn>=0.9.0->qiskit[visualization]) (2025.2)\n",
-            "Requirement already satisfied: mpmath<1.4,>=1.1.0 in /usr/local/lib/python3.13/dist-packages (from sympy>=1.3->qiskit[visualization]) (1.3.0)\n",
-            "Downloading qiskit-2.6.2-cp310-abi3-manylinux_2_28_x86_64.whl (9.5 MB)\n",
-            "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m9.5/9.5 MB\u001b[0m \u001b[31m90.5 MB/s\u001b[0m  \u001b[33m0:00:00\u001b[0m\n",
-            "\u001b[?25hDownloading qiskit_ibm_runtime-0.52.1-py3-none-any.whl (2.0 MB)\n",
-            "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m2.0/2.0 MB\u001b[0m \u001b[31m43.7 MB/s\u001b[0m  \u001b[33m0:00:00\u001b[0m\n",
-            "\u001b[?25hDownloading qiskit_mitigation-0.1.1-py3-none-any.whl (113 kB)\n",
-            "Downloading ibm_quantum_schemas-0.13.20261016-py3-none-any.whl (122 kB)\n",
-            "Downloading qiskit_qasm3_import-0.6.0-py3-none-any.whl (29 kB)\n",
-            "Downloading openqasm3-1.0.2-py3-none-any.whl (551 kB)\n",
-            "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m551.8/551.8 kB\u001b[0m \u001b[31m19.9 MB/s\u001b[0m  \u001b[33m0:00:00\u001b[0m\n",
-            "\u001b[?25hDownloading antlr4_python3_runtime-4.13.2-py3-none-any.whl (144 kB)\n",
-            "Downloading qiskit_aer-0.18.2-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (14.2 MB)\n",
-            "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m14.2/14.2 MB\u001b[0m \u001b[31m133.8 MB/s\u001b[0m  \u001b[33m0:00:00\u001b[0m\n",
-            "\u001b[?25hDownloading ibm_platform_services-0.77.2-py3-none-any.whl (412 kB)\n",
-            "Downloading ibm_cloud_sdk_core-3.28.2-py3-none-any.whl (77 kB)\n",
-            "Downloading python_dateutil-3.0.0-py2.py3-none-any.whl (94 kB)\n",
-            "Downloading pybase64-1.5.2-cp313-cp313-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl (96 kB)\n",
-            "Downloading pylatexenc-2.11-py2.py3-none-any.whl (137 kB)\n",
-            "Downloading requests_ntlm-1.3.0-py3-none-any.whl (6.6 kB)\n",
-            "Downloading pyspnego-0.12.4-py3-none-any.whl (131 kB)\n",
-            "Downloading samplomatic-0.21.0-py3-none-any.whl (234 kB)\n",
-            "Downloading stevedore-5.10.0-py3-none-any.whl (56 kB)\n",
-            "Installing collected packages: pylatexenc, openqasm3, antlr4_python3_runtime, stevedore, python-dateutil, pybase64, qiskit, ibm_cloud_sdk_core, samplomatic, qiskit_qasm3_import, qiskit-aer, pyspnego, ibm-platform-services, requests-ntlm, qiskit-mitigation, ibm-quantum-schemas, qiskit-ibm-runtime\n",
-            "\u001b[2K  Attempting uninstall: python-dateutil\n",
-            "\u001b[2K    Found existing installation: python-dateutil 2.9.0.post0\n",
-            "\u001b[2K    Uninstalling python-dateutil-2.9.0.post0:\n",
-            "\u001b[2K      Successfully uninstalled python-dateutil-2.9.0.post0\n",
-            "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m17/17\u001b[0m [qiskit-ibm-runtime]\n",
-            "\u001b[1A\u001b[2K\u001b[31mERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.\n",
-            "holidays 0.108 requires python-dateutil<3,>=2.9.0.post0, but you have python-dateutil 3.0.0 which is incompatible.\n",
-            "ibis-framework 9.5.0 requires python-dateutil<3,>=2.8.2, but you have python-dateutil 3.0.0 which is incompatible.\n",
-            "google-cloud-bigquery 3.47.0 requires python-dateutil<3.0.0,>=2.8.2, but you have python-dateutil 3.0.0 which is incompatible.\n",
-            "betterproto 2.0.0b7 requires python-dateutil<3.0,>=2.8, but you have python-dateutil 3.0.0 which is incompatible.\n",
-            "bigframes 2.51.0 requires python-dateutil<3,>=2.8.2, but you have python-dateutil 3.0.0 which is incompatible.\u001b[0m\u001b[31m\n",
-            "\u001b[0mSuccessfully installed antlr4_python3_runtime-4.13.2 ibm-platform-services-0.77.2 ibm-quantum-schemas-0.13.20261016 ibm_cloud_sdk_core-3.28.2 openqasm3-1.0.2 pybase64-1.5.2 pylatexenc-2.11 pyspnego-0.12.4 python-dateutil-3.0.0 qiskit-2.6.2 qiskit-aer-0.18.2 qiskit-ibm-runtime-0.52.1 qiskit-mitigation-0.1.1 qiskit_qasm3_import-0.6.0 requests-ntlm-1.3.0 samplomatic-0.21.0 stevedore-5.10.0\n"
-          ]
-        },
-        {
-          "output_type": "display_data",
-          "data": {
-            "application/vnd.colab-display-data+json": {
-              "pip_warning": {
-                "packages": [
-                  "dateutil"
-                ]
-              },
-              "id": "ab342198848347538748b683f5081d2e"
-            }
-          },
-          "metadata": {}
-        },
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "Python: 3.13.18\n",
-            "qiskit: 2.6.2\n",
-            "qiskit-aer: 0.18.2\n",
-            "qiskit-ibm-runtime: 0.52.1\n"
-          ]
-        },
-        {
-          "output_type": "execute_result",
-          "data": {
-            "text/plain": [
-              "<Figure size 580.387x284.278 with 1 Axes>"
-            ],
-            "image/png": "iVBORw0KGgoAAAANSUhEUgAAAdIAAADuCAYAAACNr4ZUAAAAOnRFWHRTb2Z0d2FyZQBNYXRwbG90bGliIHZlcnNpb24zLjEwLjAsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvlHJYcgAAAAlwSFlzAAAPYQAAD2EBqD+naQAAJ8BJREFUeJzt3XlcVXX+P/DXXYDLqlwW2ZRFRRFx3yVNQxMUGbfScdIZK6sZjcpR+plT2devuY02WmZNX7VxGrIiJ1zLZVLUUtRwFBA3cES4MpcdZL2c3x8MjMR27z333sPF1/Px6CH3rO8by+t+zudzPkcmCIIAIiIiMopc6gKIiIisGYOUiIhIBAYpERGRCAxSIiIiERikREREIjBIiYiIRGCQEhERicAgJSIiEoFBSkREJAKDlIiISAQGKRERkQgMUiIiIhEYpERERCIwSImIiERgkBIREYnAICUiIhKBQUpERCQCg5SIiEgEBikREZEIDFIiIiIRGKREREQiMEiJiIhEYJASERGJwCAlIiISgUFKREQkAoOUiIhIBAYpERGRCEqpCyAi65acnGzQ9lqtFl9//TVmzpwJd3d3vfYZPny4MaURWQRbpERkUVqtFp988gm0Wq3UpRCZBIOUiIhIBAYpERGRCAxSIiIiERikRGRRzs7OmDJlCpydnaUuhcgkZIIgCFIXQUTWy9BRu8bgqF3qyNgiJSKLqqqqwt27d1FVVSV1KUQmwSAlIovKzMzErFmzkJmZKXUpRCbBICUiIhKBMxtRiwRBAKzt0pudHWQymdRVUCchCAJ0Op3UZRhEoVDwd0ACDFJqWVUVap9aKHUVBlF+8SmgUkldBnUSOp0OCQkJUpdhkFmzZkGp5J91S+OlXSIiIhH40YWILKpv3744f/681GUQmQxbpERERCIwSInIou7cuYNFixbhzp07UpdCZBIMUiKyqIqKCly9ehUVFRVSl0JkEgxSIiIiERikREREIjBIiYiIRGCQEpFFeXt7Y/Xq1fD29pa6FCKT4H2kRGRRXbp0QWRkpNRlEJkMW6REZFGFhYX48ssvUVhYKHUpFiUIAoqLi3H//n1oNBoUFRXBkMdBC4KAgwcPoqSkxIxVkjHYIiUii7p//z42btyIsLAwuLq6Sl2OWWk0GiQlJeHmzZvIzMxsFoLOzs4ICAhAr169EB4eDl9f3xaPIwgC/vrXv+LgwYM4efIkVq1aBRcXF0u8BdIDg5SIyMQuX76MQ4cO4fLly21uV1paiitXruDKlSvYt28fQkNDERkZiaFDhzY+xeXhEAWAf/3rX0hLS8OoUaPM/j5IPwxSC9BqtdiwYQO+/vprZGdnw8PDAzNnzsTatWvx8ssvY+fOndi2bRuWLFkidalkJjl55fi/fddx5UYhKqt0cOtqhxkT/TF1XHcoFOxh6SxKS0uxa9cunD17ttm6htZnQ0uyrKwMWVlZKC4ubtwmNTUVqampGD58OJ599ll06dKlSYgCwOLFixmiHQyD1MxSUlIQGRkJjUYDR0dH9OvXDzk5Odi6dStu3bqFgoICAMCgQYOkLdRMTmrzMOmH77Gu3wC81rNvi9vY7v8CUZ7e+PvIxyxcnflpCyvxu7VnkXAsCzpd0/6w3d/cQA9vR/zP74ZiwfTeElVIppKamoqtW7c2CUZPT09ERERg1KhR8PDwaPasUEEQkJ+fj/Pnz+O7776DRqMBACQnJyMtLQ39+vVDcnJy4/aLFy/GxIkTLfOGSG8MUjPSarWIjo6GRqPBsmXL8NZbb8HZ2RkAsGHDBsTFxUGpVEImk2HAgAESV0umlvvvBxi/6CBu3Gl9cMi/csuxcNUpZN8vx8rnB1muOAk5ODhg5MiRcHBwkLoUk/npp5+wefNm1NTUAAAcHR2xcOFChIeHQy5v/YqDTCaDu7s7oqKiMGXKFJw7dw67du1CSUkJysvLGaJWgteUzOjll19GdnY2lixZgk2bNjWGKACsWLECAwcORG1tbZPLPdQ51NUJmP7y0TZD9GFvbLuIL7/LNHNVHUOPHj2wbds29OjRQ+pSTOLatWtNQjQsLAybNm3CuHHj2gzRn5PL5Rg9ejQ2btwIT0/PJuuioqIYoh0Yg9RM0tPTsXfvXri7u+Pdd99tcZuhQ4cCAAYOHNhkeWZmJqZPnw5nZ2e4urpiwYIFyM/PN3vNZDrfnsnGhVStQfv8759TDLodwlrpdDqUlZVBp9NJXYpoDx48wLZt2xpDdNSoUYiLizN6NLIgCEhMTEReXl6T5WfOnOFtLx0Yg9RM4uPjUVdXh/nz58PJyanFbezt7QE0DdLS0lJMmDAB2dnZiI+Px8cff4ykpCRMmzYNdXV1FqndHB7odNBWVbX4X2e0fW+6wftczijAD5fz2t/Qyt24cQMTJ07EjRs3pC5FtM8++6zxQ25ISAiWLFkCpdK4HrOfj84FgO7duwMAiouLsXv3btH1knmwj9RMTpw4AQCYMGFCq9tkZ2cDaBqkH3/8Me7du4dTp041Xvry8/PDmDFjkJiYiF/84hfmK9qM3slIxTsZqVKXYRGCIODI2Wyj9j18OhtjBnUzcUVkDjdv3sTx48cBACqVCi+99JJJQ3Tx4sUYPHgwfv/736O8vBxnz57FhAkTEBYWZpL6yXQYpGbS8NBif3//FtfX1tbizJkzAJoG6YEDBxAeHt6k/2j06NEICgrC/v37jQrSYcOGNY4G1Je9XI60QaMNPldrnusRhFk+3VtcF/njSZOcIzg4GBUdoNVeBxvUqlcZte+WrTuwa91hE1dkXrNnzzZo+4bLlocPH8bFixf12mfGjBkG1yWWra1tq90yAPDtt982fj137txm/Zr6ai1EG/pEFyxYgA8//BAA8N1337UZpMHBwaiurjaqjkedl5cXLly4YNS+DFIzKS8vB4BWH168d+9eaLVaODs7IzAwsHF5Wloa5syZ02z70NBQpKWlGVWLRqPBvXv3DNrHQaEABhl1uhb1cnLCEx7mbWnl5OTgQYfod5MBrnWAzPCek/KSApTfN+x7JbWGn3V9NfxOVFRU6L2voT+/pmBnZ9fqupKSEvzwww8AACcnJ6MHArUXogAQHh6Ozz//HIWFhbhw4QK0Wi3c3d1bPF5OTg6qOml3SUfGIDUTLy8vFBYW4tKlSxg9umnLLjc3F8uXLwcADBgwoMm9ZYWFhejatWuz46nVamRkZBhdi6HsDRht2FH4+Ph0iBYpAOTpclCj9DN4P7V9MexbmSauo3J0dDRo+4bwtLe313vf1qbOMydbW9tW150/fx61tbUAgMcff7zNbVujT4gCgEKhQEREBL788ksIgoAff/wR06ZNa/GYPj4+bJEayZi/kw0YpGYSERGB9PR0rF+/HpMmTUJwcDCA+hutn3nmGWi19SM6LTERgzGXK4TKStQ+tdAM1ZjP9evXIVOppC4DALD7m+v4zR+SDNrH19MBWZe+g1JpXR9iHr7XUR+1tbX49a9/DWdnZ737FN977z0jKhOntrYWCQkJLa67fft249fDhw83+Nj6hmiDYcOG4csvv2x27p+7fv260f20ZDzr+o21IitWrICbmxvu3r2L0NBQhIWFoXfv3hgxYgSCgoIaf2F+fuuLq6srioqKmh2voKAAarXaEqWTCTz9ZBC83O0N2mfpL/tZXYgaQ6lUwtXV1ar/4DeEmUwma3UcRGsMDVGgvkVuY2PT5NzUcXT+31qJ+Pn5ISkpCVOnToVKpUJWVhbUajU++ugjHDx4ENevXwfQPEhDQkJa7AtNS0tDSEiIRWon8exVSiRunQRHe/3CYsYT/vj9wkdjNGZ2djaWLVvWOGrdGuXk5ACovxyoMuAqiDEhCtR/+Gi4FUaj0XSKe3A7EwapGYWEhODAgQMoLS1FaWkpzp07h8WLF6O8vBxZWVmQy+Xo379/k32mTZuG06dPN/kjc+7cOdy6dQvR0dGWfgskwvD+Hji5ayoCfFq+jxgA5HIZXpzTF3s3THxkJq8vKytDUlISysrKpC7FKIIgQK1WQ61Ww8PDw6B9//a3vxkcog3c3d2hVqvRrVu3xgkgqGOw3msrViw1NRWCICA4OLjZfKOLFy/Gtm3bEBMTg9WrV6OyshIrVqzAiBEjEBMTI1HFxhvv7onq6Kfa3Ka99dZsaD933Dw4B4eSsrHjy3R8e+YedHUClAoZVvxmAF6Y0xc9vFsPWup4ZDKZ0X22gYGBkMlkEATB4LlzX3vtNaPOSebHIJXAlStXADS/rAsALi4uOHHiBGJjYzF37lwolUpMmzYNW7ZsMWjeTuo4FAo5oh/vgejHe8AvIh738h6gm5s9/vflYVKXRhY2ZswYAEBlZSXnzu1EGKQSaCtIAaBnz544cOCAJUsiIgtpCFPqPNjEkUB7QUrUmXl4eCA2Ntbg/kWijootUgk0zMNL9Chyc3PD/PnzpS6DyGTYIiUiiyopKcGxY8f4WDDqNBikRGRROTk5WLlyZeO9mETWjkFKREQkAoOUiIhIBAYpERGRCAxSIrIoOzs79OnTp83nfRJZE97+QkQWFRgYiD179khdBpHJsEVKREQkAoOUiCwqIyMDY8eORUZGhtSlEJkEg5SILEoQBNTU1EAQBKlLITIJBikREZEIHGxELbOzg/KLT6WuwjAcBUompFAoMGvWLJMdb+NHe1FaXg5nR0csf+HpZq9NQaFQmOQ4ZBgGKbVIJpMBKpXUZRBJRiaTQak03Z9IAUCdUP+vUqls9pqsF797RGRRAQEBiI+Ph6+vr9SlEJkEg5SILEqlUqFnz55Sl0FkMhxsREQWlZubizVr1iA3N1fqUohMgkFKRBZVXFyMxMREFBcXS10KkUkwSImIiERgkBIREYnAICUiIhKBQUpEFqVWq7Fw4UKo1WqpSyEyCQYpEVmUXC6HjY0N5HL++aHOgT/JRGRRWq0Wn3zyCbRardSlEJkEg5SIiEgEBikREZEIDFIiIiIRGKREZFHOzs6YMmUKnJ2dpS6FyCQ4aT0RWZSvry/eeecdqcsgMhm2SInIoqqqqnD37l1UVVVJXQqRSTBIiciiMjMzMWvWLGRmZkpdCpFJ8NIuERE1IwgCdDqd1GUYRKFQQCaTWfy8DFIiImpGp9MhISFB6jIMMmvWLCiVlo81XtolIiISgUFKREQkAi/tEpFF9e3bF+fPn5e6DCKTYYuUiIhIBAYpkYUIggBBEBq/flTduXMHixYtwp07d6QuhcgkeGmXyEyqa3TY//2/kHTpPi6kaZFyLR/lFbUAgJx/VyBwyl4M7eeOYaHumDHRH30Cu0pbsIVUVFTg6tWrqKiokLoUIpNgkBKZWE5eObbvTcefEzKQV1DZ6nZZOWXIyilDwrEs/L8/XcATI33wu7kh+MVEf0nuhSMi4zBIiUxEEATs3Hcdr206h5KyGoP3P34uB8fP5eCJkT74v9Xh8PfhpO5E1oB9pEQmUFBchajffofn3j5tVIg+7Pi5HPSfuQ979t8wUXVEZE5skRKJlJdfgYjFh3HlRqHJjln2oAYL3jgFbVEVXn2mv8mO2xF4e3tj9erV8Pb2lroUIpNgkBKJUFxajckvHjFpiD7stY3n4GivxOLZfc1yfCl06dIFkZGRUpdBVqiyshLV1dVwcXGRupQmGKREIsSu/xGXMwrMeo4la3/AqAGeGBCsNut5LKWwsBDHjh1DREQEXF1dpS6HzKyyshI3b95EZmYmbt++jZKSEtTW1sLGxgZubm4IDAxEUFAQgoKC2pwnt7KyEuvXr0d5eTlWrVrVocKUQUpkpIOn/oVPEw3rx0yOnw4vdwdotA8wfF6iXvvU1Nbh16tO4dxn02FjY/3DGu7fv4+NGzciLCyMQdqJ3blzB0ePHkVSUlKbz549efIkgPorFRMnTsQTTzwBd3f3Jts0hGh6ejoAYMuWLXjzzTc7zOh26/+ttAJarRYrVqxAr169oFKp0L17d8TGxqK8vBzPPvssZDIZ3n//fanLJANUVevwwjtnDN7Py90Bft0c4eXuYNB+P13Lx7b4VIPPR2RpRUVF2Lx5M+Li4nDs2DG9H+BeXFyMffv2YenSpfj0008b9/t5iDo4OOBXv/pVhwlRgC1Ss0tJSUFkZCQ0Gg0cHR3Rr18/5OTkYOvWrbh16xYKCuovCw4aNEjaQskgCUezcC/vgUXPue1vaYidHwqFgp9/qWM6e/Ysdu7cibKyssZlKpUKo0ePRp8+fRAUFARPT08olUpUV1fj3r17yMzMxNWrV3Hx4kXodDoIgoDDhw/jp59+wnPPPYeEhIQmIfrGG2+gZ8+eUr3FFjFIzUir1SI6OhoajQbLli3DW2+9BWfn+nsDN2zYgLi4OCiVSshkMgwYMEDiaskQH+xNs/g5s3LKcPh0NqaN72HxcxO1Z9++fdi7d2/jaxcXF8ycORPjxo2Dg0PzKzBKpRK9e/dG7969MXnyZBQUFODYsWPYv38/ampqoNFosGbNmsbtO2qIAry0a1Yvv/wysrOzsWTJEmzatKkxRAFgxYoVGDhwIGpraxEQENChOs6pbbezS3A2JU+Sc/9l/01JzmtKDg4OGDlyZIt/XMk6ffPNN01CdNSoUdi0aROmTJmi9/dZrVbjqaeewrp165qFpZ2dXYcNUYBBajbp6enYu3cv3N3d8e6777a4zdChQwEAAwcObFzWELwjRoyAnZ1dh+oHoHrnr/xbsnMnX5Xu3KbSo0cPbNu2DT16sGXdGVy8eBHx8fGNr+fPn49XXnnF6MaBm5sbbG1tmyyrra2Fvb29qDrNiUFqJvHx8airq8P8+fPh5OTU4jYNPxgPB+nNmzeRkJAALy8vDB8+3CK1kmEupGolO3dWThnyi1qfv9ca6HQ6lJWVQafTSV0KiVRWVoY///nPja/nzZuH6Ohoo4/384FFCoUCQP3PzI4dO1BXVyeuYDNhkJrJiRMnAAATJkxodZvs7GwATYN03LhxyM3NRWJiIiIiIsxbJBkl9VaRpOdPk/j8Yt24cQMTJ07EjRucAtHa7dmzB0VFRQCAwYMHY/r06UYfq6XRuatWrUK3bt0AANevX8eRI0dE12wOHGxkJg3PWvT3929xfW1tLc6cqb994uEglctN/9lm2LBh0Gg0Jj/uo+rfzr8BbAJaXNdwn2hrvNztG/+9e3Rum+dp7V7TGbPnQlXTcfpKZ8+ebdD2eXn1/cuHDx/GxYsX9dpnxowZBtfV0cz4zStwdHJBriYXfn5+zV53NLa2tq12SwH1gylPnToFoD70nn/+eaO7oloK0YY+0RdffBHvvPMOBEHA/v37MXny5FYnbggODkZ1dbVRNXh5eeHChQtG7csgNZPy8nIAaPWZi3v37oVWq4WzszMCAwPNWotGo8G9e/fMeo5HSmAVYNPyqob7RNujVMj12q4l+VotUNZxvp8NP+v6avidqKio0HvfzvDzW/efS9l1Oh3u3bvX7HVHY2dn1+b648ePNz6gPjIyEmq1cTNvtRWiABASEoKhQ4fiwoULKCwsxKVLlzBixIgWj5WTk6P3faumxCA1Ey8vr8Zv+ujRo5usy83NxfLlywEAAwYMMPuAIi8vL7Me/1GjtZWhtV9Vjbbte0u93O2hVMhRq6uDRtv2g61bO5a7mwvsuvjqU6pFODoa9oGgITzt7e313tfXt+O8X2PJ/9PfJ1co4Ovr2+x1R/PzAT8Pq6ura+y+ksvleOKJJ4w6R3sh2mDSpEmNrcXjx4+3GqQ+Pj6iWqTGYpCaSUREBNLT07F+/XpMmjQJwcHBAIDk5GQ888wz0GrrB6xYYiIGYy9XUMuW//E8Nn16pcV17U37d/foXPh1c4RGW4Hukz436vwZl/8BdZe2WwuWlJycbND2165dQ3x8PCIjI9G3r36T8b/33ntGVNaxrP3gM5SUlcPbyxvZ2dnNXnc0tbW1SEhIaHGdRqNBcXExgPquKWNao/qGKACEhYVBrVajoKAAGRkZqKura7Eb7Pr1623O12suHGxkJitWrICbmxvu3r2L0NBQhIWFoXfv3hgxYgSCgoIwceJEAE37R8k6DO3nJtm5A32dO1SIGqNXr1749ttv0atXL6lLISNlZmY2fm3M99GQEAXqW70N6yorK5Gbm2tE1ebDIDUTPz8/JCUlYerUqVCpVMjKyoJarcZHH32EgwcP4vr16wAYpNZoRJiHhOd2b3+jDk6pVMLV1VWSlgOZRlZWVuPXQUFBBu1raIi2dJ6Hg7wj4E+yGYWEhODAgQPNlpeVlSErKwtyuRz9+3euhzY/CoL8XBA+uBtO/3Tf4udeEN3b4uc0tezsbGzZsgWvvvpqhxytSu17eC7dnz+ppS3GhihQP1FDA0MHuJkbg1QCqampEAQBwcHBLU6f9dVXXwEA0tLSmrwOCAjAsGHDLFcoteq3T4dYPEgDfZ3x5JiONyjFUGVlZUhKSsLzzz8vdSlkpOjoaIwdOxY1NTUGBWlGRgauXbsGwPC5c/v374+4uDjY2trC29vbqLrNhUEqgStX6geqtHZZd86cOS2+XrhwIXbv3m3W2kg/syYFoPt7jrirsdwn45d/2Y9PfqEOwcfHBz4+PgbvN3DgQCxduhS7du3C66+/btDcuWq12uhbbMyNQSqB9oK04d4s6rhsbRT46A9jEfW77yxyvmGh7lgyr59FzkVkTmPGjMGgQYM61UML+PFWAu0FKVmHyMe6Y9GMYIP20WgfIPt+ebv3mz7M1kaO3f8zDkolf12pc+hMIQqwRSqJhhuZyfptWT4SKdfycSk9X6/t27vPtCUfrhqL0F6uBu/XUXl4eCA2NhYeHtKNfiYyJX7EJRLBxckWRz58EoP6mqfvZuvrowxu9XZ0bm5umD9/fpNRmETWjEFKJJKH2h7/+CQK08Z1N9kxXZxs8Ld1j2PpL0NNdsyOoqSkBMeOHUNJSYnUpRCZBIOUyAS6utghcdskfLpmHLo6tz5HqT6mjPXD1a9nYl6U/iMarUlOTg5WrlyJnJwcqUshMgn2kRKZiEwmw4LpvfHkWD/s+CIdHydkICdP/0FFU8b64XdzQzB1XHezP8iAiEyHQUpkYt3c7PHWS0Ow8rlBOHT6Lk5fuo+LaVr8dC0fRaX1T6ZQKGTo6eeCof3cMLSfO34x0R89u7tIXDkRGYNBSmQmNjZyxEzwR8yE/z7cva5OgE4nwMaGvSpEnQWDlMiC5HIZ5PJH+7KtnZ0d+vTp0+6Do4msBYOUiCwqMDAQe/bskboMIpPh9SUiIiIRGKREZFEZGRkYO3YsMjIypC6FyCQYpERkUYIgoKamhg9noE6DfaRERNSMQqHArFmzTHa8jR/tRWl5OZwdHbH8haebvTYFhUJhkuMYikFKRETNyGQyKJWmiwgBQJ1Q/69SqWz22prx0i4REZEI1v0xgIisTkBAAOLj4+Hr6yt1KUQmwSAlIotSqVTo2bNzTshPjyZe2iUii8rNzcWaNWuQm5srdSlEJsEgJSKLKi4uRmJiIoqLi6UuhcgkGKREREQiMEiJiIhEYJASERGJwFG7RCTK8OHDDdrez88Pb731FiIiIuDt7W2mqogsh0FKRBbl7e2Nt99+W+oyiEyGl3aJiIhEYJASERGJwCAlIiISgUFKREQkAoOUiIhIBAYpERGRCAxSIiIiERikREREIjBIiYiIRGCQEhERicAgJSIiEoFBSkREJAKDlAAAGzduxOjRo+Hq6oquXbsiPDwcR44ckbosImrDoUOHMGjQINjZ2SEgIACbN2+WuiSLOnXqFGJiYuDv7w+ZTIY1a9ZIUgeDlAAAJ06cwKJFi/CPf/wD58+fx5gxYzBt2jScOXNG6tKIqAUXLlxATEwMIiMjkZKSgrfffhsrV67Ejh07pC7NYsrKytCvXz9s2LABXl5ektXBx6gRAODw4cNNXm/YsAFHjhzB119/jbFjx0pUFRG1ZvPmzRg+fDjeffddAEBISAhSU1Oxbt06vPjiixJXZxlRUVGIiooCAMTFxUlWB4OUWlRXV4eSkhI4OjpKXQqRVXlQUYlsjbbZ8lqdrvHf65nZzV4/zKebG5wc7Ns8z5kzZ/Dss882WTZlyhRs2rQJ2dnZ8PPzE/M2RMm8m4uaWl2TZYa8fycHFXy6uVumWBNgkFKL1q5di6KiIixevFjqUoisip2tLb47lYxszb9bXP+gohI7vzjU6utu7q5YsnBGu+fJzc1tdjmz4XVubq6kQZpzPx/7j59tcV17718G4Pl508xdokmxj5Sa2b59O9auXYuvvvpK0l9GImukUMjx1LQJUCoVhu8rr9/XRmndbZzRQ0PRy9/XqH3Dhw9AUA8fE1dkXgxSamLTpk1Yvnw5EhMTERERIXU5RFbJ060roh4fafB+EeFD4avnJU1vb29oNJomy+7fv9+4TkpymQxzosZDZWdr0H7d3F0xedwwM1VlPgxSavTmm29i9erVOHToEEOUSKRRQ0LRO0D/Vpm/bzeMHzlQ7+3Hjh2Lb7/9tsmyI0eOwN/fv0NcSeri4oRfTA7Xe3uFXI6noydaZWucQUoAgFdeeQUbN27Enj170KdPH2g0Gmg0GhQXF0tdGpFVkstkmB31OOxVdu1ua2ujxFNTJ0Au1/9P8quvvorz58/jjTfewLVr1/Dpp59i27ZteP3118WUbVKD+vXCgL5Bem076bFh8PF0M+j4ZWVlSElJQUpKCqqrq6HRaJCSkoKbN28aU67RZIIgCBY9I3VIMpmsxeULFy7E7t27LVsMUSdyOe0m4vefaHObmVPGYcTAvgYf++DBg1i5ciWuXbsGLy8vxMbG4rXXXjO2VLN4UFGJ93Z+hZKyB61uE+DnhcXzphn0QQIAvv/+e0yYMKHZ8vHjx+P77783tFSjMUjJIA8qKlFQVAo/bw+pSyGyGvGJx3E5/VaL60J69cCCmU+2+mG2M7iemd1kZO7DbG1tEPubWXDr6mLhqkyHl3bJIEnJV/D+X/bh4IkfpS6FyGrETA6Hi1Pze7Id7VWYOWVcpw5RAAgO9MPoIaEtroueONqqQxRgkJIByisqcfbiVQD1l2KISD8OKjvMiRrfbPnMKePg7OggQUWWF/n4SHiouzRZFtLLH8MG9JGoItPpNEEqk8kaP9Xt378fjz32GFxcXODu7o7Zs2fj1q3/XlY5cOAAxo8fj65du8LFxQUxMTG4ceNGq8euqqrCn/70J4wZMwZdu3aFSqVCnz59sHz5cmi1zWcwAYBz584hLi4Ow4cPh5eXF+zs7ODr64unnnoKycnJrZ7r0KFDiIqKgqenJ2xsbODm5oaQkBAsWrRI8nlvTydfQVV1Dbw93dCvt7+ktRBZm96Bfhgz9L+tsqFhwQgNDpCuIAuztVHiqWkTIP/P32lHBxVmdZbWuNBJABAACO+//74AQPDx8REGDx4s2NvbCwAEX19fIS8vT9iyZYsAQPD29m6y3svLS8jLy2t2XI1GIwwePFgAIMjlcsHf318ICwsT7OzsBABCjx49hFu3bjXbr2fPngIAQa1WC6GhocLgwYMFNzc3AYCgVCqFr776qtk+H3zwQeP7cHNzE4YMGSKEhIQITk5OAgDhhRdeMMv/O32UPagQ3ty8U4hb95FwNSNTsjqIrFlVdY2w6eO9wroP/yZUVFZJXY4kjiZdqP87cj1T6lJMptMMNmr4VOPg4IAPP/wQCxYsAAAUFBRgypQpSE5OxrRp03D8+HHs2LGjcX1+fj6efPJJXLx4EXFxcVi3bl3jMQVBwIQJE3Dy5ElMnToV77//PgICAgDUD7uOjY3Fzp07MXr0aJw923Q6rL/85S8YM2YMevXq1bisrq4O33zzDRYsWAClUom7d+/CyckJAFBbWwtPT08UFhZi+/btWLx4MRQKRWMdSUlJyM/Px4wZ7U8d9nPbPv0apWUVBu/3sKrqalRV10Aul7c7BygRtU6n00EAoFQYPvNRZyAIAmpqamFrayN1KU04O9lj6cKZRu3b6YJ06dKl2Lp1a5N1R44cQWRkZKvrDx8+jKioKAwYMACXL19uXH7o0CFMnToV/fv3R3JyMlQqVZP9dDodRowYgUuXLuH06dN6PyXlD3/4A9asWYP4+HjMnTsXAKDRaODt7Q1XV1cUFBQY9ubbsfaDz1BSVm7SYxIRdSYuTo5Y+bv5Ru1rfVNItOO5555rtmzIkCF6rb99+3aT5QkJCQDq76X8eYgCgEKhwPTp03Hp0iV8//33zYL0xo0b+Pzzz3H58mXk5+ejpqYGAJCXlwcASElJaQxSDw8PqFQqFBUV4ejRo5g0aZLe77k9zk7iWpBsjRJRZyfm72SnC9KePXs2W+bh4dHmek9PTwD1l2sf9s9//hMAsGvXLvz9739v8XwNc1veu3evyfI//vGPeP3111FbW9tqrfn5+Y1fKxQKxMbGYv369Zg8eTKGDBmCiIgIhIeHY/z48XBxMX54uLGXK4D6kbobdsQDAObHRDxSgyOIiPTR6S7ttvZ2jFnfu3dvvaeaengGoDNnziA8PBwKhQKrV69GTEwMAgIC4OjoCJlMhp07d+LZZ59tNmtQXV0dtm/fjg8++ADXrl1rXG5nZ4df/vKX2LRpE9RqtV71PExMHylbo0T0KBDTR9rpWqSm1DAQKDExEdHR0Xrvt2fPHgDAsmXL8MYbbzRb/3BL9GFyuRxLlizBkiVLkJ2djaSkJBw9ehRffPEFdu3ahbt37+Lo0aMGv4/SsgrRfaR1dXXsZyUiagGDtA2hoaFISUnB1atXDQrSzMxMAEB4eMtPPvjxx/ZnBfLz88O8efMwb948LFu2DGFhYTh27BgyMzMRGBiody2A8df+2RolokcF+0jNZPbs2fjss8/w8ccfY+nSpY0t1PbY29d/Q37+rECgfgDSgQMHDKojNDQUXbp0QVFREXJycgwOUmMuV7BvlIhIP51mZiNziImJwfjx45GVlYXJkyfj6tWrTdbX1dXhhx9+wIsvvthkxO9jjz0GAHj33XebzKiUmpqK6OjoFp9wkJaWhueffx4//vhjk35anU6H9957D0VFRVCpVAgNbXm+SlPjLEZERPrhYKN21mu1WsTExDROuODv7w8vLy9UVFTg1q1bKC+v7zdMT09H3771j0EqLS3FkCFDcPPmTdjY2KBPnz6oq6tDeno6vL298dvf/harVq1qMtgoJSUFgwcPBgA4OzujZ8+eUCgUyMrKauxT3b59O1566SWj/v8YoqE1WlVdg2dmTGZrlIioDWyRtsPd3R0nT57E7t27MWnSJJSXl+PChQvIzMxEr169EBsbi5MnTyI4OLhxH2dnZ5w+fRqLFi2Cq6srMjIyUFZWhhdeeAGXLl2Cr69vs/MEBwfjk08+wdNPPw1vb2/cvn0bly9fhkqlwpw5c5CUlGSREAWAyqpq9PDxZGuUiEgPnaZFSqZXWVUNlZ2t1GUQEXVoDFIiIiIReGmXiIhIBAYpERGRCAxSIiIiERikREREIjBIiYiIRGCQEhERicAgJSIiEoFBSkREJAKDlIiISAQGKRERkQgMUiIiIhEYpERERCIwSImIiERgkBIREYnAICUiIhKBQUpERCQCg5SIiEgEBikREZEIDFIiIiIRGKREREQiMEiJiIhEYJASERGJwCAlIiISgUFKREQkAoOUiIhIBAYpERGRCAxSIiIiERikREREIjBIiYiIRGCQEhERicAgJSIiEoFBSkREJAKDlIiISAQGKRERkQgMUiIiIhEYpERERCIwSImIiERgkBIREYnAICUiIhLh/wMolq4sRgvBHQAAAABJRU5ErkJggg==\n"
-          },
-          "metadata": {},
-          "execution_count": 13
-        }
-      ],
-      "source": [
-        "!pip install 'qiskit[visualization]' qiskit-ibm-runtime qiskit-aer\n",
-        "# Core Qiskit imports\n",
-        "from qiskit import QuantumCircuit\n",
-        "from qiskit.visualization import plot_histogram\n",
-        "from qiskit_aer import AerSimulator\n",
-        "from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager\n",
-        "\n",
-        "# IBM Runtime specific imports\n",
-        "from qiskit_ibm_runtime import SamplerV2 as Sampler, QiskitRuntimeService\n",
-        "\n",
-        "\n",
-        "import sys\n",
-        "\n",
-        "import qiskit\n",
-        "import qiskit_aer\n",
-        "import qiskit_ibm_runtime\n",
-        "\n",
-        "print(\"Python:\", sys.version.split()[0])\n",
-        "print(\"qiskit:\", qiskit.__version__)\n",
-        "print(\"qiskit-aer:\", qiskit_aer.__version__)\n",
-        "print(\"qiskit-ibm-runtime:\", qiskit_ibm_runtime.__version__)\n",
-        "\n",
-        "# --- Build the Bell circuit (phi-plus) ---\n",
-        "bell = QuantumCircuit(2)\n",
-        "bell.h(0)\n",
-        "bell.cx(0, 1)\n",
-        "bell.measure_all()  # creates a classical register named \"meas\"\n",
-        "\n",
-        "bell.draw(\"mpl\")"
-      ]
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "from qiskit import QuantumCircuit\n",
-        "from qiskit_aer import AerSimulator\n",
-        "qc = QuantumCircuit(2,2)\n",
-        "qc.h(0)  # Add Hadamard gate to put qubit 0 in superposition\n",
-        "qc.cx(0,1)\n",
-        "qc.measure([0, 1], [1,0])\n",
-        "print(qc.draw())\n",
-        "simulator = AerSimulator()\n",
-        "result = simulator.run(qc,shots=1000).result()\n",
-        "print(result.get_counts())"
-      ],
-      "metadata": {
-        "colab": {
-          "base_uri": "https://localhost:8080/"
-        },
-        "id": "ggnSzHsZuJK9",
-        "outputId": "5274d2ee-1c10-4f02-be97-cc4f9ad65000"
-      },
-      "execution_count": 14,
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "     ┌───┐     ┌─┐   \n",
-            "q_0: ┤ H ├──■──┤M├───\n",
-            "     └───┘┌─┴─┐└╥┘┌─┐\n",
-            "q_1: ─────┤ X ├─╫─┤M├\n",
-            "          └───┘ ║ └╥┘\n",
-            "c: 2/═══════════╩══╩═\n",
-            "                1  0 \n",
-            "{'11': 504, '00': 496}\n"
-          ]
-        }
-      ]
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "!pip install pennylane\n",
-        "\n",
-        "import pennylane as qml\n",
-        "from pennylane import numpy as np\n",
-        "\n",
-        "dev1 = qml.device('default.qubit', wires=1)\n",
-        "\n",
-        "@qml.qnode(dev1)\n",
-        "def circuit(phi1, phi2):\n",
-        "    qml.RX(phi1, wires=0)\n",
-        "    qml.RY(phi2, wires=0)\n",
-        "    return qml.expval(qml.PauliZ(0))\n",
-        "\n",
-        "def cost(x, y):\n",
-        "    return np.sin(np.abs(circuit(x, y))) - 1\n",
-        "\n",
-        "dcost = qml.grad(cost, argnums=[0, 1])"
-      ],
-      "metadata": {
-        "colab": {
-          "base_uri": "https://localhost:8080/"
-        },
-        "id": "tGmJU7O-9sYD",
-        "outputId": "d8b5307f-a9dc-4aa4-8724-f38642c438dc"
-      },
-      "execution_count": 1,
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "Requirement already satisfied: pennylane in /usr/local/lib/python3.13/dist-packages (0.45.1)\n",
-            "Requirement already satisfied: scipy in /usr/local/lib/python3.13/dist-packages (from pennylane) (1.16.3)\n",
-            "Requirement already satisfied: networkx in /usr/local/lib/python3.13/dist-packages (from pennylane) (3.7)\n",
-            "Requirement already satisfied: rustworkx>=0.14.0 in /usr/local/lib/python3.13/dist-packages (from pennylane) (0.18.1)\n",
-            "Requirement already satisfied: autograd<1.9 in /usr/local/lib/python3.13/dist-packages (from pennylane) (1.8.0)\n",
-            "Requirement already satisfied: appdirs in /usr/local/lib/python3.13/dist-packages (from pennylane) (1.4.4)\n",
-            "Requirement already satisfied: autoray==0.8.4 in /usr/local/lib/python3.13/dist-packages (from pennylane) (0.8.4)\n",
-            "Requirement already satisfied: cachetools in /usr/local/lib/python3.13/dist-packages (from pennylane) (6.2.6)\n",
-            "Requirement already satisfied: pennylane-lightning>=0.45 in /usr/local/lib/python3.13/dist-packages (from pennylane) (0.45.0)\n",
-            "Requirement already satisfied: requests in /usr/local/lib/python3.13/dist-packages (from pennylane) (2.32.4)\n",
-            "Requirement already satisfied: tomlkit in /usr/local/lib/python3.13/dist-packages (from pennylane) (0.14.0)\n",
-            "Requirement already satisfied: typing_extensions in /usr/local/lib/python3.13/dist-packages (from pennylane) (4.16.0)\n",
-            "Requirement already satisfied: packaging in /usr/local/lib/python3.13/dist-packages (from pennylane) (26.3)\n",
-            "Requirement already satisfied: diastatic-malt in /usr/local/lib/python3.13/dist-packages (from pennylane) (2.15.3)\n",
-            "Requirement already satisfied: numpy>=2.0 in /usr/local/lib/python3.13/dist-packages (from pennylane) (2.4.6)\n",
-            "Requirement already satisfied: gast in /usr/local/lib/python3.13/dist-packages (from pennylane) (0.7.0)\n",
-            "Requirement already satisfied: scipy-openblas32>=0.3.26 in /usr/local/lib/python3.13/dist-packages (from pennylane-lightning>=0.45->pennylane) (0.3.34.481.3)\n",
-            "Requirement already satisfied: termcolor in /usr/local/lib/python3.13/dist-packages (from diastatic-malt->pennylane) (3.3.0)\n",
-            "Requirement already satisfied: charset_normalizer<4,>=2 in /usr/local/lib/python3.13/dist-packages (from requests->pennylane) (3.4.9)\n",
-            "Requirement already satisfied: idna<4,>=2.5 in /usr/local/lib/python3.13/dist-packages (from requests->pennylane) (3.20)\n",
-            "Requirement already satisfied: urllib3<3,>=1.21.1 in /usr/local/lib/python3.13/dist-packages (from requests->pennylane) (2.5.0)\n",
-            "Requirement already satisfied: certifi>=2017.4.17 in /usr/local/lib/python3.13/dist-packages (from requests->pennylane) (2026.10.23)\n"
-          ]
-        }
-      ]
-    },
-    {
-      "cell_type": "code",
-      "metadata": {
-        "colab": {
-          "base_uri": "https://localhost:8080/"
-        },
-        "id": "f8fd1279",
-        "outputId": "565839b7-9f4e-4ace-9cf6-96b961e59185"
-      },
-      "source": [
-        "# Define test inputs for phi1 and phi2\n",
-        "phi1 = np.array(0.5, requires_grad=True)\n",
-        "phi2 = np.array(0.5, requires_grad=True)\n",
-        "\n",
-        "# Calculate the gradient\n",
-        "gradient = dcost(phi1, phi2)\n",
-        "print(f\"Gradient with respect to (phi1, phi2): {gradient}\")"
-      ],
-      "execution_count": 2,
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "Gradient with respect to (phi1, phi2): (tensor(-0.30200622, requires_grad=True), tensor(-0.30200622, requires_grad=True))\n"
-          ]
-        }
-      ]
-    },
-    {
-      "cell_type": "markdown",
-      "metadata": {
-        "id": "8c58c8a4"
-      },
-      "source": [
-        "### Multi-Qubit Circuits in PennyLane\n",
-        "\n",
-        "To build a multi-qubit circuit:\n",
-        "1. **Define a Device:** Initialize `qml.device` with the parameter `wires=N` (where $N$ is the number of qubits).\n",
-        "2. **Apply Multi-Qubit Gates:** Use gates like `qml.CNOT(wires=[control, target])` or `qml.CZ(wires=[control, target])`.\n",
-        "3. **Perform Measurements:** You can return expectation values (`qml.expval`), probabilities (`qml.probs`), or state vectors (`qml.state`)."
-      ]
-    },
-    {
-      "cell_type": "code",
-      "metadata": {
-        "colab": {
-          "base_uri": "https://localhost:8080/"
-        },
-        "id": "0950872c",
-        "outputId": "f1f079c9-b22f-4d6a-9b6a-65df68b11885"
-      },
-      "source": [
-        "import pennylane as qml\n",
-        "\n",
-        "# Create a device with 3 qubits (wires)\n",
-        "dev_multi = qml.device('default.qubit', wires=3)\n",
-        "\n",
-        "@qml.qnode(dev_multi)\n",
-        "def multi_qubit_circuit():\n",
-        "    # 1. Prepare a 3-qubit GHZ state (|000> + |111>) / sqrt(2)\n",
-        "    qml.Hadamard(wires=0)\n",
-        "    qml.CNOT(wires=[0, 1])\n",
-        "    qml.CNOT(wires=[1, 2])\n",
-        "\n",
-        "    # 2. Return the probabilities for all computational basis states\n",
-        "    return qml.probs(wires=[0, 1, 2])\n",
-        "\n",
-        "# Run the circuit and display the probabilities\n",
-        "probabilities = multi_qubit_circuit()\n",
-        "for state, prob in enumerate(probabilities):\n",
-        "    print(f\"State |{state:03b}> probability: {prob:.4f}\")"
-      ],
-      "execution_count": 3,
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "State |000> probability: 0.5000\n",
-            "State |001> probability: 0.0000\n",
-            "State |010> probability: 0.0000\n",
-            "State |011> probability: 0.0000\n",
-            "State |100> probability: 0.0000\n",
-            "State |101> probability: 0.0000\n",
-            "State |110> probability: 0.0000\n",
-            "State |111> probability: 0.5000\n"
-          ]
-        }
-      ]
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "import pennylane as qml\n",
-        "dev = qml.device(\"default.qubit\", wires = 1)\n",
-        "@qml.qnode(dev)\n",
-        "def superposition():\n",
-        "    qml.Hadamard(wires=0)\n",
-        "    return qml.probs(wires=0)\n",
-        "print(\"probabilities:\", superposition())"
-      ],
-      "metadata": {
-        "colab": {
-          "base_uri": "https://localhost:8080/"
-        },
-        "id": "ywVl2ts9BKjd",
-        "outputId": "d65ec891-4ddf-406c-ca8e-be04f52ea603"
-      },
-      "execution_count": 4,
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "probabilities: [0.5 0.5]\n"
-          ]
-        }
-      ]
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "import pennylane as qml\n",
-        "import numpy as np\n",
-        "\n",
-        "# Creating a quantum processor\n",
-        "class MyQuantumChip:\n",
-        "    def __init__(self, qubits=4):\n",
-        "        self.qubits = qubits\n",
-        "        self.device = qml.device(\"default.qubit\", wires=qubits)\n",
-        "        print(\"quantum chips created\")\n",
-        "        print(\"Number of qubits:\", qubits)\n",
-        "\n",
-        "    def run_circuit(self):\n",
-        "        @qml.qnode(self.device)\n",
-        "        def circuit():\n",
-        "            # initialize the quantum gates\n",
-        "            qml.Hadamard(wires=0)  # Fixed: spelling of 'wires'\n",
-        "            qml.Hadamard(wires=1)\n",
-        "            # create entanglement\n",
-        "            qml.CNOT(wires=[0, 1])\n",
-        "            # apply additional gates\n",
-        "            qml.PauliX(wires=2)    # Fixed: capitalized 'PauliX'\n",
-        "            qml.Hadamard(wires=3)\n",
-        "            return qml.probs(wires=range(self.qubits))\n",
-        "        return circuit()\n",
-        "\n",
-        "# building a quantum chip\n",
-        "chip = MyQuantumChip(qubits=4)\n",
-        "# execute the processor\n",
-        "result = chip.run_circuit()\n",
-        "print(\"Quantum Processor Output:\")\n",
-        "print(result)"
-      ],
-      "metadata": {
-        "colab": {
-          "base_uri": "https://localhost:8080/"
-        },
-        "id": "Up9rKAbmCj9W",
-        "outputId": "15d6301e-c7c8-4b02-e4b6-6d7a7636d85f"
-      },
-      "execution_count": 5,
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "quantum chips created\n",
-            "Number of qubits: 4\n",
-            "Quantum Processor Output:\n",
-            "[0.    0.    0.125 0.125 0.    0.    0.125 0.125 0.    0.    0.125 0.125\n",
-            " 0.    0.    0.125 0.125]\n"
-          ]
-        }
-      ]
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "try:\n",
-        "    import pennylane as qml\n",
-        "except ImportError:\n",
-        "    !pip install pennylane\n",
-        "    import pennylane as qml\n",
-        "\n",
-        "number_of_qubits = 8\n",
-        "device = qml.device(\"default.qubit\", wires=number_of_qubits)\n",
-        "\n",
-        "@qml.qnode(device)\n",
-        "def my_8_qubit_processor():\n",
-        "    for i in range(number_of_qubits):\n",
-        "        qml.Hadamard(wires=i)\n",
-        "\n",
-        "    for i in range(number_of_qubits - 1):\n",
-        "        qml.CNOT(wires=[i, i+1])\n",
-        "\n",
-        "    return qml.probs(wires=range(number_of_qubits))\n",
-        "\n",
-        "print(my_8_qubit_processor())\n"
-      ],
-      "metadata": {
-        "colab": {
-          "base_uri": "https://localhost:8080/"
-        },
-        "id": "Pqi_7Az4F-he",
-        "outputId": "94809a57-fdf9-4a2e-ab63-5b65f2d2154a"
-      },
-      "execution_count": 6,
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "[0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625 0.00390625\n",
-            " 0.00390625 0.00390625 0.00390625 0.00390625]\n"
-          ]
-        }
-      ]
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "try:\n",
-        "    import pennylane as qml\n",
-        "except ImportError:\n",
-        "    !pip install pennylane\n",
-        "    import pennylane as qml\n",
-        "\n",
-        "import numpy as np\n",
-        "\n",
-        "n = 8\n",
-        "\n",
-        "# Create quantum device\n",
-        "dev = qml.device(\"default.qubit\", wires=n)\n",
-        "\n",
-        "# Create an 8-qubit circuit\n",
-        "@qml.qnode(dev)\n",
-        "def ghz_processor():\n",
-        "\n",
-        "\n",
-        "    qml.Hadamard(wires=0)\n",
-        "\n",
-        "    # Entangle all 8 qubits\n",
-        "    for i in range(n - 1):\n",
-        "        qml.CNOT(wires=[i, i + 1])\n",
-        "\n",
-        "    # Measure probabilities\n",
-        "    return qml.probs(wires=range(n))\n",
-        "\n",
-        "# Execute processor\n",
-        "probabilities = ghz_processor()\n",
-        "\n",
-        "print(\"QP-001: GHZ PROCESSOR RESULTS\")\n",
-        "\n",
-        "for state, probability in enumerate(probabilities):\n",
-        "    if probability > 0.0001:\n",
-        "        print(f\"|{state:08b}> : {probability:.4f}\")"
-      ],
-      "metadata": {
-        "id": "I4Ht2_sCHLCU",
-        "colab": {
-          "base_uri": "https://localhost:8080/"
-        },
-        "outputId": "e1db7ed2-c576-47b7-a3c9-729107f90e34"
-      },
-      "execution_count": 7,
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "QP-001: GHZ PROCESSOR RESULTS\n",
-            "|00000000> : 0.5000\n",
-            "|11111111> : 0.5000\n"
-          ]
-        }
-      ]
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "import pennylane as qml\n",
-        "import numpy as np\n",
-        "# measurement processor\n",
-        "n = 8\n",
-        "dev_measure = qml.device(\"default.qubit\", wires=n, shots=1000)\n",
-        "\n",
-        "@qml.qnode(dev_measure)\n",
-        "def quantum_measurement():\n",
-        "    # creation of GHZ state\n",
-        "    qml.Hadamard(wires=0)\n",
-        "    for i in range(n - 1):\n",
-        "        qml.CNOT(wires=[i, i + 1])\n",
-        "\n",
-        "    return qml.sample(wires=range(n))\n",
-        "\n",
-        "# execution of 1000 measurements\n",
-        "results = quantum_measurement()\n",
-        "\n",
-        "# count measurement outcomes\n",
-        "states, counts = np.unique(results, axis=0, return_counts=True)\n",
-        "print(\"QP_001 MEASUREMENT RESULTS\")\n",
-        "print(\"-------------------------\")\n",
-        "for state, count in zip(states, counts):\n",
-        "    binary = ''.join(map(str, state))\n",
-        "    print(binary, \":\", count)\n",
-        "\n",
-        "print(\"-------------------------------\")\n",
-        "print(\"Total measurements:\", len(results))"
-      ],
-      "metadata": {
-        "colab": {
-          "base_uri": "https://localhost:8080/"
-        },
-        "id": "ESvqMWJUsq13",
-        "outputId": "cbb5d718-ec64-4143-feba-60af5ccb147c"
-      },
-      "execution_count": 8,
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "QP_001 MEASUREMENT RESULTS\n",
-            "-------------------------\n",
-            "00000000 : 524\n",
-            "11111111 : 476\n",
-            "-------------------------------\n",
-            "Total measurements: 1000\n"
-          ]
-        },
-        {
-          "output_type": "stream",
-          "name": "stderr",
-          "text": [
-            "/usr/local/lib/python3.13/dist-packages/pennylane/devices/device_api.py:207: PennyLaneDeprecationWarning: Setting shots on device is deprecated. Please use the `set_shots` transform on the respective QNode instead.\n",
-            "  warnings.warn(\n"
-          ]
-        }
-      ]
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "import pennylane as qml\n",
-        "import numpy as np\n",
-        "# noise simulation ingine\n",
-        "n = 8\n",
-        "shots = 2000\n",
-        "# 1%\n",
-        "noise_level = 0.01\n",
-        "dev_noise = qml.device(\"default.mixed\", wires=n, shots=shots)\n",
-        "\n",
-        "@qml.qnode(dev_noise)\n",
-        "def noisy_quantum_processor():\n",
-        "    qml.Hadamard(wires=0)\n",
-        "\n",
-        "    # Fixed capitalization from 'depolarizingChannel' to 'DepolarizingChannel'\n",
-        "    qml.DepolarizingChannel(noise_level, wires=0)\n",
-        "    for i in range(n - 1):\n",
-        "        qml.CNOT(wires=[i, i+1])\n",
-        "        # Apply the single-qubit DepolarizingChannel to each wire individually\n",
-        "        qml.DepolarizingChannel(noise_level, wires=i)\n",
-        "        qml.DepolarizingChannel(noise_level, wires=i+1)\n",
-        "\n",
-        "    # Correctly return the sample measurement from within the QNode\n",
-        "    return qml.sample(wires=range(n))\n",
-        "\n",
-        "# run noisy processor\n",
-        "results = noisy_quantum_processor()\n",
-        "# count outcome\n",
-        "states, counts = np.unique(results, axis=0, return_counts=True)\n",
-        "print(\"QP_001 NOISE SIMULATION\")\n",
-        "print(\"_______________________\")\n",
-        "print(\"Noise level:\", noise_level)\n",
-        "print(\"total shots:\", shots)\n",
-        "for state, count in zip(states, counts):\n",
-        "    binary = ''.join(map(str, state))\n",
-        "    print(binary, \":\", count)\n",
-        "print(\"________________________\")\n",
-        "print(\"distinct outcomes:\", len(states))"
-      ],
-      "metadata": {
-        "colab": {
-          "base_uri": "https://localhost:8080/"
-        },
-        "id": "fjJE-XNDv3A6",
-        "outputId": "f7c4acdb-2415-421f-d375-5f6598280721"
-      },
-      "execution_count": 9,
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "QP_001 NOISE SIMULATION\n",
-            "_______________________\n",
-            "Noise level: 0.01\n",
-            "total shots: 2000\n",
-            "00000000 : 908\n",
-            "00000001 : 9\n",
-            "00000010 : 4\n",
-            "00000011 : 4\n",
-            "00000100 : 9\n",
-            "00000101 : 1\n",
-            "00000111 : 5\n",
-            "00001000 : 8\n",
-            "00001111 : 4\n",
-            "00010000 : 12\n",
-            "00011000 : 1\n",
-            "00011111 : 9\n",
-            "00100000 : 3\n",
-            "00100100 : 1\n",
-            "00111101 : 1\n",
-            "00111111 : 4\n",
-            "01000000 : 6\n",
-            "01000001 : 1\n",
-            "01011111 : 1\n",
-            "01111111 : 17\n",
-            "10000000 : 8\n",
-            "10011111 : 1\n",
-            "10111011 : 1\n",
-            "10111111 : 5\n",
-            "11000000 : 5\n",
-            "11001111 : 1\n",
-            "11011111 : 5\n",
-            "11100000 : 4\n",
-            "11100100 : 1\n",
-            "11101111 : 9\n",
-            "11110000 : 2\n",
-            "11110111 : 10\n",
-            "11111000 : 7\n",
-            "11111011 : 7\n",
-            "11111100 : 7\n",
-            "11111101 : 3\n",
-            "11111110 : 7\n",
-            "11111111 : 909\n",
-            "________________________\n",
-            "distinct outcomes: 38\n"
-          ]
-        }
-      ]
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "\n",
-        "\n",
-        "# Convert measurement results into a dictionary\n",
-        "measurement_counts = {\n",
-        "    ''.join(map(str, state)): int(count)\n",
-        "    for state, count in zip(states, counts)\n",
-        "}\n",
-        "\n",
-        "# Expected GHZ outcomes\n",
-        "zero_state = \"00000000\"\n",
-        "one_state = \"11111111\"\n",
-        "\n",
-        "zero_count = measurement_counts.get(zero_state, 0)\n",
-        "one_count = measurement_counts.get(one_state, 0)\n",
-        "\n",
-        "# Calculate statistics\n",
-        "ghz_count = zero_count + one_count\n",
-        "total_count = len(results)\n",
-        "\n",
-        "ghz_percentage = (ghz_count / total_count) * 100\n",
-        "other_percentage = 100 - ghz_percentage\n",
-        "\n",
-        "print(\"QP-001 NOISE ANALYSIS\")\n",
-        "print(\"-------------------------\")\n",
-        "print(\"Total measurements:\", total_count)\n",
-        "print(\"All-zero outcomes:\", zero_count)\n",
-        "print(\"All-one outcomes:\", one_count)\n",
-        "print(\"Expected GHZ outcomes:\", ghz_count)\n",
-        "print(\"Other outcomes:\", total_count - ghz_count)\n",
-        "\n",
-        "print(\"-------------------------\")\n",
-        "print(\"GHZ outcome percentage:\",\n",
-        "      round(ghz_percentage, 2), \"%\")\n",
-        "\n",
-        "print(\"Other outcome percentage:\",\n",
-        "      round(other_percentage, 2), \"%\")\n"
-      ],
-      "metadata": {
-        "colab": {
-          "base_uri": "https://localhost:8080/"
-        },
-        "id": "FoMH5Stby4_D",
-        "outputId": "9df18e2d-a053-4d8e-8c83-64cffc0fdc97"
-      },
-      "execution_count": 10,
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "QP-001 NOISE ANALYSIS\n",
-            "-------------------------\n",
-            "Total measurements: 2000\n",
-            "All-zero outcomes: 908\n",
-            "All-one outcomes: 909\n",
-            "Expected GHZ outcomes: 1817\n",
-            "Other outcomes: 183\n",
-            "-------------------------\n",
-            "GHZ outcome percentage: 90.85 %\n",
-            "Other outcome percentage: 9.15 %\n"
-          ]
-        }
-      ]
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "\n",
-        "import pennylane as qml\n",
-        "import numpy as np\n",
-        "\n",
-        "# =====================================\n",
-        "# QP-001 QUANTUM ERROR CORRECTION ENGINE\n",
-        "# =====================================\n",
-        "\n",
-        "shots = 5000\n",
-        "error_rate = 0.05\n",
-        "\n",
-        "# Create 3-qubit noisy simulator\n",
-        "dev_qec = qml.device(\n",
-        "    \"default.mixed\",\n",
-        "    wires=3,\n",
-        "    shots=shots\n",
-        ")\n",
-        "\n",
-        "@qml.qnode(dev_qec)\n",
-        "def repetition_code():\n",
-        "\n",
-        "    # Step 1: Prepare logical state |1>\n",
-        "    qml.PauliX(wires=0)\n",
-        "\n",
-        "    # Step 2: Encode into three qubits |111>\n",
-        "    qml.CNOT(wires=[0, 1])\n",
-        "    qml.CNOT(wires=[0, 2])\n",
-        "\n",
-        "    # Step 3: Introduce bit-flip errors\n",
-        "    for i in range(3):\n",
-        "        qml.BitFlip(error_rate, wires=i)\n",
-        "\n",
-        "    # Step 4: Measure all three qubits\n",
-        "    return qml.sample(wires=[0, 1, 2])\n",
-        "\n",
-        "\n",
-        "# Execute experiment\n",
-        "results = repetition_code()\n",
-        "\n",
-        "# Step 5: Calculate raw error rate\n",
-        "raw_errors = np.sum(results[:, 0] != 1)\n",
-        "\n",
-        "# Step 6: Majority vote decoder\n",
-        "corrected_bits = (\n",
-        "    np.sum(results, axis=1) >= 2\n",
-        ").astype(int)\n",
-        "\n",
-        "corrected_errors = np.sum(corrected_bits != 1)\n",
-        "\n",
-        "# Step 7: Display results\n",
-        "raw_error_percentage = raw_errors / shots * 100\n",
-        "corrected_error_percentage = corrected_errors / shots * 100\n",
-        "\n",
-        "print(\"QP-001 QUANTUM ERROR CORRECTION\")\n",
-        "print(\"--------------------------------\")\n",
-        "print(\"Total measurements:\", shots)\n",
-        "print(\"Individual qubit error rate:\", error_rate)\n",
-        "print(\"--------------------------------\")\n",
-        "print(\"Raw first-qubit errors:\", raw_errors)\n",
-        "print(\"Corrected logical errors:\", corrected_errors)\n",
-        "print(\"--------------------------------\")\n",
-        "print(\"Raw error percentage:\",\n",
-        "      round(raw_error_percentage, 2), \"%\")\n",
-        "\n",
-        "print(\"Corrected error percentage:\",\n",
-        "      round(corrected_error_percentage, 2), \"%\")\n",
-        "\n",
-        "print(\"--------------------------------\")\n",
-        "print(\"ERROR CORRECTION EXPERIMENT COMPLETE\")\n"
-      ],
-      "metadata": {
-        "colab": {
-          "base_uri": "https://localhost:8080/"
-        },
-        "id": "ORKTkjdY1RMs",
-        "outputId": "72423aea-1f94-4ae7-8e37-158d592133d7"
-      },
-      "execution_count": 11,
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "QP-001 QUANTUM ERROR CORRECTION\n",
-            "--------------------------------\n",
-            "Total measurements: 5000\n",
-            "Individual qubit error rate: 0.05\n",
-            "--------------------------------\n",
-            "Raw first-qubit errors: 252\n",
-            "Corrected logical errors: 36\n",
-            "--------------------------------\n",
-            "Raw error percentage: 5.04 %\n",
-            "Corrected error percentage: 0.72 %\n",
-            "--------------------------------\n",
-            "ERROR CORRECTION EXPERIMENT COMPLETE\n"
-          ]
-        }
-      ]
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "\n",
-        "import pennylane as qml\n",
-        "import numpy as np\n",
-        "\n",
-        "# ==========================================\n",
-        "# QP-001 AUTOMATIC ERROR DETECTION ENGINE\n",
-        "# ==========================================\n",
-        "\n",
-        "shots = 5000\n",
-        "error_rate = 0.05\n",
-        "\n",
-        "# 3 data qubits + 2 ancilla qubits\n",
-        "dev = qml.device(\n",
-        "    \"default.mixed\",\n",
-        "    wires=5,\n",
-        "    shots=shots\n",
-        ")\n",
-        "\n",
-        "@qml.qnode(dev)\n",
-        "def automatic_error_correction():\n",
-        "\n",
-        "    # STEP 1: Prepare logical |1>\n",
-        "    qml.PauliX(wires=0)\n",
-        "\n",
-        "    # STEP 2: Encode |1> as |111>\n",
-        "    qml.CNOT(wires=[0, 1])\n",
-        "    qml.CNOT(wires=[0, 2])\n",
-        "\n",
-        "    # STEP 3: Introduce random bit-flip errors\n",
-        "    for i in range(3):\n",
-        "        qml.BitFlip(error_rate, wires=i)\n",
-        "\n",
-        "    # STEP 4: Measure error syndromes\n",
-        "    # Ancilla 3 checks parity of qubits 0 and 1\n",
-        "    qml.CNOT(wires=[0, 3])\n",
-        "    qml.CNOT(wires=[1, 3])\n",
-        "\n",
-        "    # Ancilla 4 checks parity of qubits 1 and 2\n",
-        "    qml.CNOT(wires=[1, 4])\n",
-        "    qml.CNOT(wires=[2, 4])\n",
-        "\n",
-        "    s01 = qml.measure(wires=3)\n",
-        "    s12 = qml.measure(wires=4)\n",
-        "\n",
-        "    # STEP 5: Automatically correct identified errors\n",
-        "\n",
-        "    # Error on qubit 0: syndrome 10\n",
-        "    qml.cond(s01 & ~s12, qml.PauliX)(wires=0)\n",
-        "\n",
-        "    # Error on qubit 1: syndrome 11\n",
-        "    qml.cond(s01 & s12, qml.PauliX)(wires=1)\n",
-        "\n",
-        "    # Error on qubit 2: syndrome 01\n",
-        "    qml.cond(~s01 & s12, qml.PauliX)(wires=2)\n",
-        "\n",
-        "    # STEP 6: Measure corrected data qubits\n",
-        "    return qml.sample(wires=[0, 1, 2])\n",
-        "\n",
-        "\n",
-        "# Execute processor\n",
-        "results = automatic_error_correction()\n",
-        "\n",
-        "# STEP 7: Analyse corrected results\n",
-        "correct_errors = np.sum(\n",
-        "    np.any(results != 1, axis=1)\n",
-        ")\n",
-        "\n",
-        "correct_percentage = (\n",
-        "    correct_errors / shots\n",
-        ") * 100\n",
-        "\n",
-        "print(\"QP-001 AUTOMATIC ERROR CORRECTION\")\n",
-        "print(\"----------------------------------\")\n",
-        "print(\"Total measurements:\", shots)\n",
-        "print(\"Bit-flip probability:\", error_rate)\n",
-        "print(\"Logical errors after correction:\", correct_errors)\n",
-        "print(\"Corrected logical error rate:\",\n",
-        "      round(correct_percentage, 3), \"%\")\n",
-        "print(\"----------------------------------\")\n",
-        "print(\"AUTOMATIC CORRECTION COMPLETE\")\n"
-      ],
-      "metadata": {
-        "colab": {
-          "base_uri": "https://localhost:8080/"
-        },
-        "id": "FFB902Al1loO",
-        "outputId": "d36a6882-65d7-491e-e868-a59e32999cf5"
-      },
-      "execution_count": 12,
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "QP-001 AUTOMATIC ERROR CORRECTION\n",
-            "----------------------------------\n",
-            "Total measurements: 5000\n",
-            "Bit-flip probability: 0.05\n",
-            "Logical errors after correction: 46\n",
-            "Corrected logical error rate: 0.92 %\n",
-            "----------------------------------\n",
-            "AUTOMATIC CORRECTION COMPLETE\n"
-          ]
-        }
-      ]
-    }
-  ]
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Install and verify required packages\n",
+    "!python -m pip install --quiet qiskit qiskit-aer pennylane numpy matplotlib seaborn\n",
+    "\n",
+    "import sys\n",
+    "import json\n",
+    "import math\n",
+    "import numpy as np\n",
+    "import matplotlib.pyplot as plt\n",
+    "import seaborn as sns\n",
+    "\n",
+    "import qiskit\n",
+    "import qiskit_aer\n",
+    "import pennylane as qml\n",
+    "\n",
+    "print(\"Python:\", sys.version.split()[0])\n",
+    "print(\"Qiskit:\", qiskit.__version__)\n",
+    "print(\"Qiskit Aer:\", qiskit_aer.__version__)\n",
+    "print(\"PennyLane:\", qml.__version__)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 1) Bell-state simulation with Qiskit\n",
+    "\n",
+    "This is a foundational quantum state where two qubits are entangled. The two valid outcomes are \"00\" and \"11\" with equal probability.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from qiskit import QuantumCircuit\n",
+    "from qiskit_aer import AerSimulator\n",
+    "\n",
+    "bell = QuantumCircuit(2, 2)\n",
+    "bell.h(0)\n",
+    "bell.cx(0, 1)\n",
+    "bell.measure([0, 1], [0, 1])\n",
+    "bell.draw(output=\"mpl\", style=\"fivethirtyeight\")\n",
+    "\n",
+    "sim = AerSimulator()\n",
+    "result = sim.run(bell, shots=1024).result()\n",
+    "counts = result.get_counts()\n",
+    "print(\"Bell measurement counts:\", counts)\n",
+    "\n",
+    "# Visualize distribution\n",
+    "plt.figure(figsize=(6, 4))\n",
+    "plt.bar(counts.keys(), counts.values(), color=[\"#4C72B0\", \"#55A868\"])\n",
+    "plt.title(\"Bell State Measurement Distribution\")\n",
+    "plt.xlabel(\"Outcome\")\n",
+    "plt.ylabel(\"Counts\")\n",
+    "plt.show()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 2) GHZ processor experiment\n",
+    "\n",
+    "The Greenberger-Horne-Zeilinger (GHZ) state creates a highly entangled system. For an 8-qubit GHZ state, the system should be dominated by \"00000000\" and \"11111111\" outcomes with equal probability.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def ghz_state(n_qubits=8):\n",
+    "    qc = QuantumCircuit(n_qubits, n_qubits)\n",
+    "    qc.h(0)\n",
+    "    for i in range(n_qubits - 1):\n",
+    "        qc.cx(i, i + 1)\n",
+    "    qc.measure(range(n_qubits), range(n_qubits))\n",
+    "    return qc\n",
+    "\n",
+    "n = 8\n",
+    "qc_ghz = ghz_state(n)\n",
+    "print(qc_ghz)\n",
+    "\n",
+    "sim = AerSimulator()\n",
+    "result = sim.run(qc_ghz, shots=4096).result()\n",
+    "counts = result.get_counts()\n",
+    "\n",
+    "filtered = {k: v for k, v in counts.items() if v > 10}\n",
+    "print(\"Important GHZ outcomes:\", filtered)\n",
+    "\n",
+    "# Show all significant outcomes\n",
+    "labels = list(filtered.keys())\n",
+    "values = list(filtered.values())\n",
+    "plt.figure(figsize=(10, 5))\n",
+    "plt.bar(labels, values, color=\"#DD8452\")\n",
+    "plt.title(f\"GHZ State (n={n}) Measurement Outcomes\")\n",
+    "plt.xlabel(\"Bitstring\")\n",
+    "plt.ylabel(\"Counts\")\n",
+    "plt.xticks(rotation=45)\n",
+    "plt.show()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 3) PennyLane: parameterized circuit and gradient\n",
+    "\n",
+    "PennyLane is useful for differentiable quantum circuits and hybrid optimization workflows.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "dev = qml.device(\"default.qubit\", wires=1)\n",
+    "\n",
+    "@qml.qnode(dev, shots=None)\n",
+    "def circuit(phi1, phi2):\n",
+    "    qml.RX(phi1, wires=0)\n",
+    "    qml.RY(phi2, wires=0)\n",
+    "    return qml.expval(qml.PauliZ(0))\n",
+    "\n",
+    "def cost(x, y):\n",
+    "    return np.sin(np.abs(circuit(x, y))) - 1\n",
+    "\n",
+    "phi1 = np.array(0.5, requires_grad=True)\n",
+    "phi2 = np.array(0.5, requires_grad=True)\n",
+    "dcost = qml.grad(cost, argnums=[0, 1])\n",
+    "gradient = dcost(phi1, phi2)\n",
+    "print(\"Gradient:\", gradient)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 4) Noise simulation\n",
+    "\n",
+    "Noisy quantum devices are a practical reality. Here we simulate a depolarizing error model on a GHZ processor.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "n = 8\n",
+    "noise_level = 0.01\n",
+    "shots = 2000\n",
+    "\n",
+    "dev_noisy = qml.device(\"default.mixed\", wires=n)\n",
+    "\n",
+    "@qml.qnode(dev_noisy, shots=shots)\n",
+    "def noisy_ghz_processor():\n",
+    "    qml.Hadamard(wires=0)\n",
+    "    for i in range(n - 1):\n",
+    "        qml.CNOT(wires=[i, i + 1])\n",
+    "        qml.DepolarizingChannel(noise_level, wires=i)\n",
+    "        qml.DepolarizingChannel(noise_level, wires=i + 1)\n",
+    "    return qml.sample(wires=range(n))\n",
+    "\n",
+    "samples = noisy_ghz_processor()\n",
+    "states, counts = np.unique(samples, axis=0, return_counts=True)\n",
+    "\n",
+    "measurement_counts = {\n",
+    "    \"\".join(map(str, state)): int(count) for state, count in zip(states, counts)\n",
+    "}\n",
+    "\n",
+    "zero_state = \"0\" * n\n",
+    "one_state = \"1\" * n\n",
+    "zero_count = measurement_counts.get(zero_state, 0)\n",
+    "one_count = measurement_counts.get(one_state, 0)\n",
+    "ghz_count = zero_count + one_count\n",
+    "ghz_percentage = (ghz_count / shots) * 100\n",
+    "\n",
+    "print(\"Noise level:\", noise_level)\n",
+    "print(\"Shots:\", shots)\n",
+    "print(\"Zero-state count:\", zero_count)\n",
+    "print(\"One-state count:\", one_count)\n",
+    "print(\"GHZ-state percentage:\", round(ghz_percentage, 2), \"%\")\n",
+    "\n",
+    "# Print top error outcomes\n",
+    "for bitstring, count in sorted(measurement_counts.items(), key=lambda item: item[1], reverse=True)[:10]:\n",
+    "    print(f\"{bitstring}: {count}\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 5) Quantum error correction: repetition code\n",
+    "\n",
+    "We will encode a logical state into three physical qubits and use a majority vote decoder to detect bit-flip errors.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def repetition_code_experiment(error_rate=0.05, shots=5000):\n",
+    "    dev = qml.device(\"default.mixed\", wires=3)\n",
+    "    \n",
+    "    @qml.qnode(dev, shots=shots)\n",
+    "    def noisy_repetition_code():\n",
+    "        qml.PauliX(wires=0)\n",
+    "        qml.CNOT(wires=[0, 1])\n",
+    "        qml.CNOT(wires=[0, 2])\n",
+    "        for i in range(3):\n",
+    "            qml.BitFlip(error_rate, wires=i)\n",
+    "        return qml.sample(wires=[0, 1, 2])\n",
+    "\n",
+    "    results = noisy_repetition_code()\n",
+    "\n",
+    "    raw_errors = np.sum(results[:, 0] != 1)\n",
+    "    corrected_bits = (np.sum(results, axis=1) >= 2).astype(int)\n",
+    "    corrected_errors = np.sum(corrected_bits != 1)\n",
+    "\n",
+    "    return {\n",
+    "        \"raw_errors\": int(raw_errors),\n",
+    "        \"corrected_errors\": int(corrected_errors),\n",
+    "        \"raw_error_percentage\": (raw_errors / shots) * 100,\n",
+    "        \"corrected_error_percentage\": (corrected_errors / shots) * 100,\n",
+    "        \"results\": results,\n",
+    "    }\n",
+    "\n",
+    "experiment = repetition_code_experiment()\n",
+    "print(\"Raw errors:\", experiment[\"raw_errors\"])\n",
+    "print(\"Corrected errors:\", experiment[\"corrected_errors\"])\n",
+    "print(\"Raw error percentage:\", round(experiment[\"raw_error_percentage\"], 2), \"%\")\n",
+    "print(\"Corrected error percentage:\", round(experiment[\"corrected_error_percentage\"], 2), \"%\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 6) Building a reusable quantum processor abstraction\n",
+    "\n",
+    "This structure makes the notebook more project-like. It separates the simulation setup from the experiments.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "class QuantumProcessorSimulator:\n",
+    "    def __init__(self, qubits=4, noise_level=0.0):\n",
+    "        self.qubits = qubits\n",
+    "        self.noise_level = noise_level\n",
+    "        self.device = qml.device(\"default.mixed\" if noise_level > 0 else \"default.qubit\", wires=qubits)\n",
+    "\n",
+    "    def bell_state(self, shots=1024):\n",
+    "        @qml.qnode(self.device, shots=shots)\n",
+    "        def circuit():\n",
+    "            qml.Hadamard(0)\n",
+    "            qml.CNOT([0, 1])\n",
+    "            return qml.sample(wires=[0, 1])\n",
+    "        return circuit()\n",
+    "\n",
+    "    def ghz_state(self, shots=1024):\n",
+    "        @qml.qnode(self.device, shots=shots)\n",
+    "        def circuit():\n",
+    "            qml.Hadamard(0)\n",
+    "            for i in range(self.qubits - 1):\n",
+    "                qml.CNOT([i, i + 1])\n",
+    "            return qml.sample(wires=range(self.qubits))\n",
+    "        return circuit()\n",
+    "\n",
+    "    def summary(self):\n",
+    "        print(f\"Quantum processor initialized with {self.qubits} qubits\")\n",
+    "        print(f\"Noise model active: {self.noise_level > 0}\")\n",
+    "\n",
+    "\n",
+    "sim = QuantumProcessorSimulator(qubits=4, noise_level=0.0)\n",
+    "sim.summary()\n",
+    "print(\"Bell samples:\", sim.bell_state(shots=100)[:10])\n",
+    "print(\"GHZ samples:\", sim.ghz_state(shots=20)[:10])\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 7) Final notes\n",
+    "\n",
+    "This notebook is a better foundation for a real project because it: \n",
+    "- avoids excessive repetition\n",
+    "- separates experimentation from architecture\n",
+    "- uses cleaner code blocks\n",
+    "- includes noise and error correction concepts\n",
+    "- introduces a more reusable processor simulator abstraction\n",
+    "\n",
+    "For a production-grade project, the next step would be to add:\n",
+    "- a proper README\n",
+    "- dependency pinning via requirements.txt\n",
+    "- plotting/reporting utilities\n",
+    "- unit tests\n",
+    "- modular source files instead of a single notebook\n"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "name": "python",
+   "version": "3.11"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
 }
