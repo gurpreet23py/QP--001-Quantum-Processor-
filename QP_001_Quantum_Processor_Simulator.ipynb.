@@ -4,16 +4,9 @@
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "# QP-001: Advanced Quantum Processor Simulator\n",
+    "# QP-001: Quantum Processor Simulator\n",
     "\n",
-    "This notebook demonstrates a more advanced quantum processor simulation workflow using Qiskit and PennyLane. It covers:\n",
-    "- Bell-state preparation\n",
-    "- GHZ-state generation\n",
-    "- Noise modeling\n",
-    "- Quantum error correction with repetition code\n",
-    "- Basic processor abstraction for experiment orchestration\n",
-    "\n",
-    "The goal is to move from simple examples to a cleaner and more reusable quantum processor simulation project.\n"
+    "This notebook demonstrates Bell and GHZ circuits, noise modeling, repetition-code decoding, and a reusable PennyLane-based processor abstraction.\n"
    ]
   },
   {
@@ -22,24 +15,19 @@
    "metadata": {},
    "outputs": [],
    "source": [
-    "# Install and verify required packages\n",
-    "!python -m pip install --quiet qiskit qiskit-aer pennylane numpy matplotlib seaborn\n",
-    "\n",
     "import sys\n",
-    "import json\n",
-    "import math\n",
+    "!{sys.executable} -m pip install --quiet 'qiskit>=1.0' 'qiskit-aer>=0.15' 'pennylane>=0.40,<0.46' 'numpy>=1.23' 'matplotlib>=3.7'\n",
+    "\n",
     "import numpy as np\n",
     "import matplotlib.pyplot as plt\n",
-    "import seaborn as sns\n",
-    "\n",
     "import qiskit\n",
     "import qiskit_aer\n",
     "import pennylane as qml\n",
     "\n",
-    "print(\"Python:\", sys.version.split()[0])\n",
-    "print(\"Qiskit:\", qiskit.__version__)\n",
-    "print(\"Qiskit Aer:\", qiskit_aer.__version__)\n",
-    "print(\"PennyLane:\", qml.__version__)\n"
+    "print('Python:', sys.version.split()[0])\n",
+    "print('Qiskit:', qiskit.__version__)\n",
+    "print('Qiskit Aer:', qiskit_aer.__version__)\n",
+    "print('PennyLane:', qml.__version__)\n"
    ]
   },
   {
@@ -48,7 +36,7 @@
    "source": [
     "## 1) Bell-state simulation with Qiskit\n",
     "\n",
-    "This is a foundational quantum state where two qubits are entangled. The two valid outcomes are \"00\" and \"11\" with equal probability.\n"
+    "The ideal measurement outcomes are `00` and `11` with equal probability.\n"
    ]
   },
   {
@@ -64,19 +52,19 @@
     "bell.h(0)\n",
     "bell.cx(0, 1)\n",
     "bell.measure([0, 1], [0, 1])\n",
-    "bell.draw(output=\"mpl\", style=\"fivethirtyeight\")\n",
+    "print(bell.draw(output='text'))\n",
     "\n",
     "sim = AerSimulator()\n",
-    "result = sim.run(bell, shots=1024).result()\n",
-    "counts = result.get_counts()\n",
-    "print(\"Bell measurement counts:\", counts)\n",
+    "counts = sim.run(bell, shots=1024).result().get_counts()\n",
+    "print('Bell measurement counts:', counts)\n",
     "\n",
-    "# Visualize distribution\n",
     "plt.figure(figsize=(6, 4))\n",
-    "plt.bar(counts.keys(), counts.values(), color=[\"#4C72B0\", \"#55A868\"])\n",
-    "plt.title(\"Bell State Measurement Distribution\")\n",
-    "plt.xlabel(\"Outcome\")\n",
-    "plt.ylabel(\"Counts\")\n",
+    "labels = sorted(counts)\n",
+    "color_map = {'00': '#4C72B0', '11': '#55A868'}\n",
+    "plt.bar(labels, [counts[label] for label in labels], color=[color_map.get(label, '#4C72B0') for label in labels])\n",
+    "plt.title('Bell State Measurement Distribution')\n",
+    "plt.xlabel('Outcome')\n",
+    "plt.ylabel('Counts')\n",
     "plt.show()\n"
    ]
   },
@@ -86,7 +74,7 @@
    "source": [
     "## 2) GHZ processor experiment\n",
     "\n",
-    "The Greenberger-Horne-Zeilinger (GHZ) state creates a highly entangled system. For an 8-qubit GHZ state, the system should be dominated by \"00000000\" and \"11111111\" outcomes with equal probability.\n"
+    "An ideal GHZ circuit produces only `000...0` and `111...1` outcomes in the computational basis.\n"
    ]
   },
   {
@@ -96,6 +84,8 @@
    "outputs": [],
    "source": [
     "def ghz_state(n_qubits=8):\n",
+    "    if isinstance(n_qubits, bool) or not isinstance(n_qubits, int) or n_qubits < 1:\n",
+    "        raise ValueError('n_qubits must be a positive integer')\n",
     "    qc = QuantumCircuit(n_qubits, n_qubits)\n",
     "    qc.h(0)\n",
     "    for i in range(n_qubits - 1):\n",
@@ -106,22 +96,15 @@
     "n = 8\n",
     "qc_ghz = ghz_state(n)\n",
     "print(qc_ghz)\n",
+    "counts = AerSimulator().run(qc_ghz, shots=4096).result().get_counts()\n",
+    "filtered = {key: value for key, value in counts.items() if value > 10}\n",
+    "print('Important GHZ outcomes:', filtered)\n",
     "\n",
-    "sim = AerSimulator()\n",
-    "result = sim.run(qc_ghz, shots=4096).result()\n",
-    "counts = result.get_counts()\n",
-    "\n",
-    "filtered = {k: v for k, v in counts.items() if v > 10}\n",
-    "print(\"Important GHZ outcomes:\", filtered)\n",
-    "\n",
-    "# Show all significant outcomes\n",
-    "labels = list(filtered.keys())\n",
-    "values = list(filtered.values())\n",
     "plt.figure(figsize=(10, 5))\n",
-    "plt.bar(labels, values, color=\"#DD8452\")\n",
-    "plt.title(f\"GHZ State (n={n}) Measurement Outcomes\")\n",
-    "plt.xlabel(\"Bitstring\")\n",
-    "plt.ylabel(\"Counts\")\n",
+    "plt.bar(list(filtered), list(filtered.values()), color='#DD8452')\n",
+    "plt.title(f'GHZ State (n={n}) Measurement Outcomes')\n",
+    "plt.xlabel('Bitstring')\n",
+    "plt.ylabel('Counts')\n",
     "plt.xticks(rotation=45)\n",
     "plt.show()\n"
    ]
@@ -132,7 +115,7 @@
    "source": [
     "## 3) PennyLane: parameterized circuit and gradient\n",
     "\n",
-    "PennyLane is useful for differentiable quantum circuits and hybrid optimization workflows.\n"
+    "Use PennyLane's differentiable NumPy for trainable parameters.\n"
    ]
   },
   {
@@ -141,7 +124,7 @@
    "metadata": {},
    "outputs": [],
    "source": [
-    "dev = qml.device(\"default.qubit\", wires=1)\n",
+    "dev = qml.device('default.qubit', wires=1)\n",
     "\n",
     "@qml.qnode(dev, shots=None)\n",
     "def circuit(phi1, phi2):\n",
@@ -150,13 +133,12 @@
     "    return qml.expval(qml.PauliZ(0))\n",
     "\n",
     "def cost(x, y):\n",
-    "    return np.sin(np.abs(circuit(x, y))) - 1\n",
+    "    return qml.numpy.sin(qml.numpy.abs(circuit(x, y))) - 1\n",
     "\n",
-    "phi1 = np.array(0.5, requires_grad=True)\n",
-    "phi2 = np.array(0.5, requires_grad=True)\n",
-    "dcost = qml.grad(cost, argnums=[0, 1])\n",
-    "gradient = dcost(phi1, phi2)\n",
-    "print(\"Gradient:\", gradient)\n"
+    "phi1 = qml.numpy.array(0.5, requires_grad=True)\n",
+    "phi2 = qml.numpy.array(0.5, requires_grad=True)\n",
+    "gradient = qml.grad(cost, argnums=[0, 1])(phi1, phi2)\n",
+    "print('Gradient:', gradient)\n"
    ]
   },
   {
@@ -165,7 +147,7 @@
    "source": [
     "## 4) Noise simulation\n",
     "\n",
-    "Noisy quantum devices are a practical reality. Here we simulate a depolarizing error model on a GHZ processor.\n"
+    "This models depolarizing noise to show how GHZ populations degrade under realistic noise.\n"
    ]
   },
   {
@@ -177,8 +159,10 @@
     "n = 8\n",
     "noise_level = 0.01\n",
     "shots = 2000\n",
+    "if not 0.0 <= noise_level <= 1.0:\n",
+    "    raise ValueError('noise_level must be between 0 and 1')\n",
     "\n",
-    "dev_noisy = qml.device(\"default.mixed\", wires=n)\n",
+    "dev_noisy = qml.device('default.mixed', wires=n)\n",
     "\n",
     "@qml.qnode(dev_noisy, shots=shots)\n",
     "def noisy_ghz_processor():\n",
@@ -189,29 +173,21 @@
     "        qml.DepolarizingChannel(noise_level, wires=i + 1)\n",
     "    return qml.sample(wires=range(n))\n",
     "\n",
-    "samples = noisy_ghz_processor()\n",
-    "states, counts = np.unique(samples, axis=0, return_counts=True)\n",
+    "samples = np.asarray(noisy_ghz_processor(), dtype=int).reshape(shots, n)\n",
+    "states, state_counts = np.unique(samples, axis=0, return_counts=True)\n",
+    "measurement_counts = {''.join(map(str, state)): int(count) for state, count in zip(states, state_counts)}\n",
+    "zero_count = measurement_counts.get('0' * n, 0)\n",
+    "one_count = measurement_counts.get('1' * n, 0)\n",
+    "ghz_percentage = 100.0 * (zero_count + one_count) / shots\n",
     "\n",
-    "measurement_counts = {\n",
-    "    \"\".join(map(str, state)): int(count) for state, count in zip(states, counts)\n",
-    "}\n",
+    "print('Noise level:', noise_level)\n",
+    "print('Shots:', shots)\n",
+    "print('Zero-state count:', zero_count)\n",
+    "print('One-state count:', one_count)\n",
+    "print('GHZ population:', round(ghz_percentage, 2), '%')\n",
     "\n",
-    "zero_state = \"0\" * n\n",
-    "one_state = \"1\" * n\n",
-    "zero_count = measurement_counts.get(zero_state, 0)\n",
-    "one_count = measurement_counts.get(one_state, 0)\n",
-    "ghz_count = zero_count + one_count\n",
-    "ghz_percentage = (ghz_count / shots) * 100\n",
-    "\n",
-    "print(\"Noise level:\", noise_level)\n",
-    "print(\"Shots:\", shots)\n",
-    "print(\"Zero-state count:\", zero_count)\n",
-    "print(\"One-state count:\", one_count)\n",
-    "print(\"GHZ-state percentage:\", round(ghz_percentage, 2), \"%\")\n",
-    "\n",
-    "# Print top error outcomes\n",
     "for bitstring, count in sorted(measurement_counts.items(), key=lambda item: item[1], reverse=True)[:10]:\n",
-    "    print(f\"{bitstring}: {count}\")\n"
+    "    print(f'{bitstring}: {count}')\n"
    ]
   },
   {
@@ -220,7 +196,7 @@
    "source": [
     "## 5) Quantum error correction: repetition code\n",
     "\n",
-    "We will encode a logical state into three physical qubits and use a majority vote decoder to detect bit-flip errors.\n"
+    "This is a simple majority-vote decoder for independent bit-flip errors on a known logical state.\n"
    ]
   },
   {
@@ -230,45 +206,49 @@
    "outputs": [],
    "source": [
     "def repetition_code_experiment(error_rate=0.05, shots=5000):\n",
-    "    dev = qml.device(\"default.mixed\", wires=3)\n",
-    "    \n",
+    "    if not 0.0 <= error_rate <= 1.0:\n",
+    "        raise ValueError('error_rate must be between 0 and 1')\n",
+    "    if isinstance(shots, bool) or not isinstance(shots, int) or shots <= 0:\n",
+    "        raise ValueError('shots must be a positive integer')\n",
+    "\n",
+    "    dev = qml.device('default.mixed', wires=3)\n",
+    "\n",
     "    @qml.qnode(dev, shots=shots)\n",
     "    def noisy_repetition_code():\n",
     "        qml.PauliX(wires=0)\n",
     "        qml.CNOT(wires=[0, 1])\n",
     "        qml.CNOT(wires=[0, 2])\n",
-    "        for i in range(3):\n",
-    "            qml.BitFlip(error_rate, wires=i)\n",
+    "        for wire in range(3):\n",
+    "            qml.BitFlip(error_rate, wires=wire)\n",
     "        return qml.sample(wires=[0, 1, 2])\n",
     "\n",
-    "    results = noisy_repetition_code()\n",
-    "\n",
-    "    raw_errors = np.sum(results[:, 0] != 1)\n",
-    "    corrected_bits = (np.sum(results, axis=1) >= 2).astype(int)\n",
-    "    corrected_errors = np.sum(corrected_bits != 1)\n",
+    "    results = np.asarray(noisy_repetition_code(), dtype=int).reshape(shots, 3)\n",
+    "    raw_errors = int(np.count_nonzero(results[:, 0] != 1))\n",
+    "    decoded_bits = (results.sum(axis=1) >= 2).astype(int)\n",
+    "    corrected_errors = int(np.count_nonzero(decoded_bits != 1))\n",
     "\n",
     "    return {\n",
-    "        \"raw_errors\": int(raw_errors),\n",
-    "        \"corrected_errors\": int(corrected_errors),\n",
-    "        \"raw_error_percentage\": (raw_errors / shots) * 100,\n",
-    "        \"corrected_error_percentage\": (corrected_errors / shots) * 100,\n",
-    "        \"results\": results,\n",
+    "        'raw_errors': raw_errors,\n",
+    "        'corrected_errors': corrected_errors,\n",
+    "        'raw_error_percentage': 100.0 * raw_errors / shots,\n",
+    "        'corrected_error_percentage': 100.0 * corrected_errors / shots,\n",
+    "        'results': results,\n",
     "    }\n",
     "\n",
     "experiment = repetition_code_experiment()\n",
-    "print(\"Raw errors:\", experiment[\"raw_errors\"])\n",
-    "print(\"Corrected errors:\", experiment[\"corrected_errors\"])\n",
-    "print(\"Raw error percentage:\", round(experiment[\"raw_error_percentage\"], 2), \"%\")\n",
-    "print(\"Corrected error percentage:\", round(experiment[\"corrected_error_percentage\"], 2), \"%\")\n"
+    "print('Raw physical-qubit errors:', experiment['raw_errors'])\n",
+    "print('Majority-decoded logical errors:', experiment['corrected_errors'])\n",
+    "print('Raw error percentage:', round(experiment['raw_error_percentage'], 2), '%')\n",
+    "print('Corrected error percentage:', round(experiment['corrected_error_percentage'], 2), '%')\n"
    ]
   },
   {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "## 6) Building a reusable quantum processor abstraction\n",
+    "## 6) Reusable processor abstraction\n",
     "\n",
-    "This structure makes the notebook more project-like. It separates the simulation setup from the experiments.\n"
+    "This is the reusable architecture layer that keeps the simulation portable and easier to extend.\n"
    ]
   },
   {
@@ -279,57 +259,65 @@
    "source": [
     "class QuantumProcessorSimulator:\n",
     "    def __init__(self, qubits=4, noise_level=0.0):\n",
+    "        if isinstance(qubits, bool) or not isinstance(qubits, int) or qubits < 2:\n",
+    "            raise ValueError('qubits must be an integer of at least 2')\n",
+    "        if not 0.0 <= noise_level <= 1.0:\n",
+    "            raise ValueError('noise_level must be between 0 and 1')\n",
     "        self.qubits = qubits\n",
-    "        self.noise_level = noise_level\n",
-    "        self.device = qml.device(\"default.mixed\" if noise_level > 0 else \"default.qubit\", wires=qubits)\n",
+    "        self.noise_level = float(noise_level)\n",
+    "        self.device = qml.device('default.mixed' if self.noise_level > 0 else 'default.qubit', wires=qubits)\n",
+    "\n",
+    "    def _apply_noise(self, wires):\n",
+    "        if self.noise_level > 0:\n",
+    "            for wire in wires:\n",
+    "                qml.DepolarizingChannel(self.noise_level, wires=wire)\n",
     "\n",
     "    def bell_state(self, shots=1024):\n",
+    "        if isinstance(shots, bool) or not isinstance(shots, int) or shots <= 0:\n",
+    "            raise ValueError('shots must be a positive integer')\n",
+    "\n",
     "        @qml.qnode(self.device, shots=shots)\n",
     "        def circuit():\n",
-    "            qml.Hadamard(0)\n",
-    "            qml.CNOT([0, 1])\n",
+    "            qml.Hadamard(wires=0)\n",
+    "            qml.CNOT(wires=[0, 1])\n",
+    "            self._apply_noise([0, 1])\n",
     "            return qml.sample(wires=[0, 1])\n",
+    "\n",
     "        return circuit()\n",
     "\n",
     "    def ghz_state(self, shots=1024):\n",
+    "        if isinstance(shots, bool) or not isinstance(shots, int) or shots <= 0:\n",
+    "            raise ValueError('shots must be a positive integer')\n",
+    "\n",
     "        @qml.qnode(self.device, shots=shots)\n",
     "        def circuit():\n",
-    "            qml.Hadamard(0)\n",
+    "            qml.Hadamard(wires=0)\n",
     "            for i in range(self.qubits - 1):\n",
-    "                qml.CNOT([i, i + 1])\n",
+    "                qml.CNOT(wires=[i, i + 1])\n",
+    "                self._apply_noise([i, i + 1])\n",
     "            return qml.sample(wires=range(self.qubits))\n",
+    "\n",
     "        return circuit()\n",
     "\n",
     "    def summary(self):\n",
-    "        print(f\"Quantum processor initialized with {self.qubits} qubits\")\n",
-    "        print(f\"Noise model active: {self.noise_level > 0}\")\n",
+    "        print(f'Quantum processor initialized with {self.qubits} qubits')\n",
+    "        print(f'Depolarizing noise level: {self.noise_level}')\n",
     "\n",
-    "\n",
-    "sim = QuantumProcessorSimulator(qubits=4, noise_level=0.0)\n",
-    "sim.summary()\n",
-    "print(\"Bell samples:\", sim.bell_state(shots=100)[:10])\n",
-    "print(\"GHZ samples:\", sim.ghz_state(shots=20)[:10])\n"
+    "processor = QuantumProcessorSimulator(qubits=4, noise_level=0.0)\n",
+    "processor.summary()\n",
+    "print('Bell samples:', processor.bell_state(shots=100)[:10])\n",
+    "print('GHZ samples:', processor.ghz_state(shots=20)[:10])\n"
    ]
   },
   {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "## 7) Final notes\n",
+    "## Notes\n",
     "\n",
-    "This notebook is a better foundation for a real project because it: \n",
-    "- avoids excessive repetition\n",
-    "- separates experimentation from architecture\n",
-    "- uses cleaner code blocks\n",
-    "- includes noise and error correction concepts\n",
-    "- introduces a more reusable processor simulator abstraction\n",
-    "\n",
-    "For a production-grade project, the next step would be to add:\n",
-    "- a proper README\n",
-    "- dependency pinning via requirements.txt\n",
-    "- plotting/reporting utilities\n",
-    "- unit tests\n",
-    "- modular source files instead of a single notebook\n"
+    "- These are simulation-only examples; they do not run on actual quantum hardware.\n",
+    "- The repetition-code example demonstrates a simple bit-flip decoder, not a full fault-tolerant architecture.\n",
+    "- Noise models are illustrative and should not be treated as calibrated hardware behavior.\n"
    ]
   }
  ],
