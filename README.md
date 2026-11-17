@@ -1,45 +1,41 @@
 # QP-001 Quantum Processor Simulator
 
-A small, reproducible **classical quantum-circuit simulation** project using Qiskit and Aer. It is designed for learning and experiments on a laptop, Colab, or a supported Python environment; it is not a physical quantum processor.
-
-## Features
-
-- Bell- and GHZ-state circuit sampling
-- Configurable single-qubit, two-qubit, and readout noise
-- A seeded Aer simulation for repeatable runs
-- A three-qubit bit-flip repetition-code demonstration with majority decoding
-- Notebook smoke tests and input validation
+A small, local **classical quantum-circuit simulation** project for learning with Qiskit, Aer, and PennyLane. It does not submit jobs to quantum hardware.
 
 ## Quick start
 
-Use a fresh virtual environment where possible:
+Use Python 3.10–3.12 and a virtual environment:
 
 ```bash
 python -m venv .venv
 # Linux/macOS
 source .venv/bin/activate
-# Windows PowerShell
-# .venv\Scripts\Activate.ps1
+# Windows PowerShell: .venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
+jupyter lab
 ```
 
-Open `QP_001_Quantum_Processor_Simulator.ipynb` in Jupyter or upload it to Google Colab, then run cells from top to bottom. In Colab, upload `requirements.txt` too and install with `!python -m pip install -r requirements.txt` if needed. The notebook intentionally avoids automatic installs so it does not unexpectedly alter the host environment.
+Open `QP_001_Quantum_Processor_Simulator.ipynb` and run the cells from top to bottom. In Google Colab, upload the notebook and run its first setup cell; it installs the notebook dependencies into the active kernel.
 
-## Resource guidance
+## What the notebook demonstrates
 
-Simulation is not hardware execution. State-vector and density-matrix costs grow exponentially with qubit count, and noisy density-matrix simulations can become expensive even sooner. Start with 2–8 qubits and a modest number of shots; reduce shots/qubits on limited machines. The notebook rejects sizes outside 1–20 as a guardrail, but memory available on a specific machine is the actual limit.
+- Bell- and GHZ-state preparation and sampling with Qiskit Aer
+- A differentiable PennyLane circuit and gradient
+- Depolarizing noise on an 8-qubit GHZ circuit
+- A majority-vote decoder for a known computational-basis state under independent bit flips
+- A reusable PennyLane simulator class with configurable depolarizing noise
 
-## Interpretation and limitations
+## Notes and limitations
 
-- GHZ computational-basis population score counts outcomes equal to all-zero or all-one. It is **not** a full state-fidelity measurement, since it does not verify relative phase.
-- The repetition-code example corrects independent bit flips for a known computational-basis state. It is not a complete quantum error-correcting code and does not correct phase errors or protect arbitrary unknown quantum states.
-- Noise channels are illustrative models and should not be treated as calibrated hardware properties.
-- The notebook does not submit jobs to a real quantum processor. Hardware execution needs provider access and separate backend/transpilation setup.
+- Simulation is not hardware execution. Cost and memory use grow quickly with qubit count; noisy density-matrix simulation can be especially expensive.
+- The GHZ all-zero/all-one population score is not a full state-fidelity measurement because it does not verify relative phase.
+- The repetition-code cell is an educational bit-flip demonstration, not a complete fault-tolerant quantum error-correcting code. It does not model syndrome extraction or phase-error correction.
+- Noise channels are illustrative and are not calibrated hardware properties.
+- Shot-based outputs vary between runs unless a simulator seed is explicitly configured.
 
 ## Troubleshooting
 
-- Use a fresh environment and a Python version supported by the installed Qiskit/Aer releases if binary installation fails.
-- If a plotting dependency is unavailable, the notebook still runs the simulator and tests; plots are optional.
-- If a run is slow or memory-heavy, lower shot counts and qubit count.
-- Reinstall packages in the active environment with `python -m pip`, not a different `pip` executable.
+- Install dependencies into the same Python environment that runs Jupyter.
+- If installation fails, use a supported Python version and a fresh virtual environment.
+- Reduce shot counts or qubit counts if simulation is slow or memory-heavy.
